@@ -35,7 +35,7 @@ def left_path():
         gold = 0
         print("You give up all your gold. The goblins let you pass.")
     elif choice == "2":
-        simple_rpg.init("Goblin")
+        simple_rpg.main("Goblin")
         pass
     elif choice == "3":
         start()
@@ -47,4 +47,5 @@ def right_path():
 
 
 if __name__ == "__main__":
+    simple_rpg.load_player()
     main()
