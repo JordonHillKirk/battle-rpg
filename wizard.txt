@@ -1,0 +1,10 @@
+name: Wizard
+hp: 20
+max_hp: 20
+attack: 10
+defense: 2
+magic: 50
+mp: 200
+max_mp: 200
+special: Sheepda
+inventory: 
