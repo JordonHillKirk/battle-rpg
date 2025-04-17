@@ -71,7 +71,7 @@ def load_player():
         player["max_mp"] = int(split[7].strip())
 
 def damage_variance(damage):
-    return random.randint(damage - 3, damage + 3)
+    return random.randint(damage - 4, damage + 4)
 
 def show_health_bar(name, hp, max_hp, mp = None, max_mp = None):
     bar_length = 20
