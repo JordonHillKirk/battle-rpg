@@ -89,11 +89,20 @@ def show_health_bar(name, hp, max_hp, mp = None, max_mp = None):
         bar = bar_color * filled_length + "\U00002B1b" * (bar_length - filled_length)
         print(f"\t[{bar}] {mp}/{max_mp} MP")
 
-def main():
+def main(e: str = None):
     lambda_count = 0
     lambda_turn_count = 0
     used_lambda = False
-    enemy = random.choice(enemies)
+    enemy = None
+    if e:
+        for en in enemies:
+            if en["name"] == e:
+                enemy = en
+                break
+        if enemy == None:
+            enemy = random.choice(enemies)
+    else:
+        enemy = random.choice(enemies)
     enemy_moves = {"Bite": enemy["attack"] + 2, "Scratch": enemy["attack"] - 2}
     if enemy["name"] == "Dragon":
         enemy_moves["Fire Breath"] = 25
@@ -216,6 +225,10 @@ def main():
             print("You have been defeated.")
     
     print("The battle is over.")
+
+def init(e = None):
+    load_player()
+    main(e)
 
 if __name__ == "__main__":
     load_player()
