@@ -89,6 +89,15 @@ def show_health_bar(name, hp, max_hp, mp = None, max_mp = None):
         bar = bar_color * filled_length + "\U00002B1b" * (bar_length - filled_length)
         print(f"\t[{bar}] {mp}/{max_mp} MP")
 
+def copy_enemy(e):
+    enemy = {}
+    enemy["name"] = e["name"]
+    enemy["hp"] = e["hp"]
+    enemy["max_hp"] = e["max_hp"]
+    enemy["attack"] = e["attack"]
+    enemy["defense"] = e["defense"]
+    return enemy
+
 def main(e: str = None):
     lambda_count = 0
     lambda_turn_count = 0
@@ -97,12 +106,12 @@ def main(e: str = None):
     if e:
         for en in enemies:
             if en["name"] == e:
-                enemy = en
+                enemy = copy_enemy(en)
                 break
         if enemy == None:
-            enemy = random.choice(enemies)
+            enemy = copy_enemy(random.choice(enemies))
     else:
-        enemy = random.choice(enemies)
+        enemy = copy_enemy(random.choice(enemies))
     enemy_moves = {"Bite": enemy["attack"] + 2, "Scratch": enemy["attack"] - 2}
     if enemy["name"] == "Dragon":
         enemy_moves["Fire Breath"] = 25
