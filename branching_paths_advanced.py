@@ -18,7 +18,7 @@ def main():
     start()
 
 def randomize_areas():
-    global been_to_oasis, cave_num
+    global cave_num
     random.shuffle(endpoints)
     areas.append(endpoints[0])
     random.shuffle(areas)
@@ -144,21 +144,24 @@ def dragon():
         choice = input("What action do you take? (1-3): ")
         if choice == "1":
             while True:
+                choices = 3
                 print("\nYou boop the dragon on its snout. It stirs and lifts its head.")
                 print("\"Why have you come about?\" she asks. \"Do you wish that you were dead?")
                 print("1. I want some treasure. Can I have some?")
                 print("2. I hate dragons. Prapare to die!")
-
-                # TODO: Only allow Bards this option
-                print("3. Are you a dragon? Because you are firey hot.")
+                options = 2
+                if get_name() == "Bard":
+                    options += 1
+                    print(f"{options}. Are you a dragon? Because you are firey hot.")
 
                 if False not in areas_visitied:
-                    print("4. I'm stuck in the forest, and can't find a way out. Can you help me?")
+                    options += 1
+                    print(f"{options}. I'm stuck in the forest, and can't find a way out. Can you help me?")
                 
-                choice = input("What action do you take? (1-4): ")
+                choice = input(f"What action do you take? (1-{options}): ")
                 if choice == "1":
                     print("The dragon looks down at you with a stern expression.")
-                    if check(15, "Cha"):
+                    if check(15, "cha"):
                         print("But, she reluctantly slides you 30 gold.")
                         get_gold(30)
                         print("You thank the dragon and back out of the cave.")
@@ -173,20 +176,20 @@ def dragon():
                     fight("Dragon")
                     dead_dragon()
                 
-                elif choice == "3":
+                elif choice == "3" and get_name() == "Bard":
                     print("The dragon considers your words", end="")
-                    if check(20, "Cha"):
+                    if check(20, "cha"):
                         print(".\nShe is flattered and asks what you need.")
                         print("You tell the dragon you need help getting home.")
-                        print("She tells you to climb on her back, and she'll fly you out.")
+                        print("She tells you to climb on her back and she'll fly you out.")
                         print("You fly off into the sunset. The end.")
-                        return None
+                        victory()
                     else:
                         print(" offensive.\nShe wants to bite off you head.")
                         fight("Dragon")
                         dead_dragon()
 
-                elif choice == "4" and been_to_oasis:
+                elif ((choice == "3" and get_name != "Bard") or choice == "4") and False not in areas_visitied:
                     print("You tell the dragon you need help getting home.")
                     print("She tells you to climb on her back and she'll fly you out.")
                     print("You fly off into the sunset. The end.")
@@ -199,7 +202,7 @@ def dragon():
             print("You try to steal some treasure.")
             print("You manage to steal 30 gold.")
             get_gold(30)
-            if check(20, "Dex"):
+            if check(20, "dex"):
                 print("You successfully get away without waking the dragon.")
                 return False
             else:
@@ -226,8 +229,6 @@ def dead_dragon():
     victory()
 
 def oasis():
-    global been_to_oasis
-    been_to_oasis = True
     while True:
         print("\nYou find a small stream with only dense forest on the other side. There is nowhere to go but back.")
         print("1. Rest for a bit before going back.")
@@ -243,6 +244,9 @@ def oasis():
             return False
         else: 
             print("Not a valid choice. Try again.")
+
+def get_name():
+    return game.player.name
 
 def has_gold(val = 0):
     return game.player.gold >= val and game.player.gold > 0

@@ -1,5 +1,6 @@
 name;hp;max_hp;attack;defense;magic;mp;max_mp;special;inventory
 Hero;100;100;15;5;25;30;30;Valor;Potion,Potion,Power Boost
-Wizard;20;20;10;2;50;200;200;Shepda;
+Wizard;20;20;10;2;50;200;200;Sheepda;
 Barbarian;150;150;20;0;5;2;2;Rage;Power Boost,Power Boost
 Tank;5;5;15;200;20;10;10;ArmorUp;Potion
+Bard;80;80;15;4;30;50;50;Sleep;

@@ -35,7 +35,7 @@ sheep_image = pygame.Surface((80, 80))
 sheep_image.fill((255, 255, 255))
 pygame.draw.circle(sheep_image, (200, 200, 200), (40, 40), 40)
 
-specials = ["Rage", "Valor", "Sheepda", "ArmorUp"]
+specials = ["Rage", "Valor", "Sheepda", "ArmorUp", "Sleep"]
 
 def draw_text(surface, text, x, y, color=(255,255,255)):
     rendered = font.render(text, True, color)
@@ -126,7 +126,8 @@ class BattleGame:
             "Hero": 1,
             "Wizard": 2,
             "Barbarian": 3,
-            "Tank": 4
+            "Tank": 4,
+            "Bard": 5
         }
         self.selected_character = None
         self.in_character_select = True
@@ -147,7 +148,8 @@ class BattleGame:
         self.spells = {
             "Fireball": {"mp": 10, "damage": lambda magic: max(0, magic) + 5},
             "Ice Spike": {"mp": 8, "damage": lambda magic: max(0, magic - 5)},
-            "Lambda": {"mp": 5, "effect": "summon_sheep"}
+            "Lambda": {"mp": 5, "effect": "summon_sheep"},
+            "Magic Up": {"mp": 20, "boost": 15}
         }
         self.items = {
             "Potion": {"heal": 20},
@@ -164,6 +166,7 @@ class BattleGame:
         self.sheep_block_active = False
         self.sheep_block_duration = 0
         self.sheep_eaten_count = 0
+        self.sleep_duration = 0
         self.select_enemy(e)
         self.running = True
         self.last_player_action = ""
@@ -274,7 +277,7 @@ class BattleGame:
             self.make_buttons()
 
     def set_special(self):
-        if self.player.special != "ArmorUp":
+        if self.player.special != "ArmorUp" and self.player.special != "Sleep":
             self.special_active = True
             self.special_turn_count = 3
         self.special_used = True
@@ -328,6 +331,8 @@ class BattleGame:
             draw_status(screen, self.player, 50, 50)
             draw_status(screen, self.enemy, 500, 50) 
             y = 140
+            if self.sleep_duration:
+                draw_text(screen, "Asleep", 500, y, (200, 50, 50))
             if self.special_active:
                 draw_text(screen, f"{self.player.special} is active", 50, y, (200, 255, 200))
                 y += 30
@@ -355,6 +360,9 @@ class BattleGame:
                 move_func = self.moves[self.selected_move]
                 damage = max(1, damage_variance(move_func(self.player.attack - self.enemy.defense)))
                 self.enemy.take_damage(damage)
+                if self.sleep_duration:
+                    self.sleep_duration = 0
+                    self.last_enemy_action = "The enemy has awoken."
                 self.last_player_action = f"You used {self.selected_move} for {damage} damage!"
             elif self.action == "spell":
                 spell = self.spells[self.selected_move]
@@ -362,7 +370,13 @@ class BattleGame:
                 if "damage" in spell:
                     damage = max(1, damage_variance(spell["damage"](self.player.magic - self.enemy.defense)))
                     self.enemy.take_damage(damage)
+                    if self.sleep_duration:
+                        self.sleep_duration = 0
+                        self.last_enemy_action = "The enemy has awoken."
                     self.last_player_action = f"You cast {self.selected_move} for {damage} damage!"
+                elif "boost" in spell:
+                    self.player.magic += spell["boost"]
+                    self.last_player_action = f"You cast {self.selected_move} boosting Magic by {spell["boost"]}."
                 elif spell.get("effect") == "summon_sheep":
                     self.sheep_block_active = True
                     self.sheep_block_duration = random.randint(1, 2)
@@ -382,6 +396,9 @@ class BattleGame:
                 if self.selected_move == "ArmorUp":
                     self.player.hp += self.player.max_hp
                     self.last_enemy_action = "You fortify your armor."
+                if self.selected_move == "Sleep":
+                    self.last_enemy_action = "The enemy has fallen asleep."
+                    self.sleep_duration = 3
                 self.action = None
                 self.selected_move = None
                 self.set_menu("main")
@@ -408,7 +425,11 @@ class BattleGame:
         self.running = False
 
     def enemy_turn(self):
-        if self.enemy.name == "Bandit" and self.enemy.hp < 20 and "Potion" in self.enemy.inventory:
+        if self.sleep_duration:
+            self.sleep_duration -= 1
+            if self.sleep_duration == 0:
+                self.last_enemy_action == "The enemy has awoken."
+        elif self.enemy.name == "Bandit" and self.enemy.hp < 20 and "Potion" in self.enemy.inventory:
             # self.enemy.inventory.remove("Potion")
             heal = 30
             self.enemy.hp = min(self.enemy.max_hp, self.enemy.hp + heal)
@@ -461,7 +482,7 @@ class BattleGame:
 
 if __name__ == "__main__":
     game = BattleGame()
-    game.select_enemy("Goblin")
+    game.select_enemy("Dragon")
     game.run()
     game.run()
     pygame.quit()
