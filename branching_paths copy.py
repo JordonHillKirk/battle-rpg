@@ -1,17 +1,31 @@
-import simple_rpg
+import advanced_rpg
 import random
+import pygame
+import sys
 
+endpoints = [
+    lambda: cave(),
+    lambda: oasis()
+]
 areas = [
     lambda: goblin_toll(),
     lambda: bandits()
 ]
+areas_visitied = []
 
 def main():
     print("You wake up in a dark forest.")
     start()
 
 def randomize_areas():
+    global been_to_oasis, cave_num
+    random.shuffle(endpoints)
+    areas.append(endpoints[0])
     random.shuffle(areas)
+    areas.append(endpoints[1])
+    cave_num = areas.index(endpoints[0])
+    for _ in areas:
+        areas_visitied.append(False)
 
 def start():
     while True:
@@ -19,34 +33,24 @@ def start():
         print("1. Take the left path.")
         print("2. Take the right path.")
         choice = input("Which path do you choose? (1 or 2): ")
-
+        press_enter_to_continue()
         if choice == "1":
-            area1()
-            
+            area(0)
         elif choice == "2":
-            area2()
-            
+            area(cave_num + 1)
         else: 
             print("Not a valid choice. Try again.")
 
-def area1():
-    from_cave = False
+def area(num):
+    back = False
+    areas_visitied[num] = True
     while True:
-        forward = areas[0]()
-        if (forward and not from_cave) or (not forward and from_cave):
-            from_cave = not cave()
+        forward = areas[num]()
+        press_enter_to_continue()
+        if forward != back:
+            back = not area(num + 1)
         else:
             return False
-
-def area2():
-    from_cave = False
-    while True:
-        forward = areas[1]()
-        if (forward and not from_cave) or (not forward and from_cave):
-            from_cave = not cave()
-        else:
-            return False
-
 
 def goblin_toll():
     while True:
@@ -108,6 +112,7 @@ def bandits():
             print("[You equipped the dagger. (+2 Attack)]")
             get_item("Potion")
             attack_up(2)
+            print("You continue down the path.")
             return True
         else: 
             print("Not a valid choice. Try again.")
@@ -139,7 +144,7 @@ def dragon():
         choice = input("What action do you take? (1-3): ")
         if choice == "1":
             while True:
-                print("You boop the dragon on its snout. It stirs and lifts its head.")
+                print("\nYou boop the dragon on its snout. It stirs and lifts its head.")
                 print("\"Why have you come about?\" she asks. \"Do you wish that you were dead?")
                 print("1. I want some treasure. Can I have some?")
                 print("2. I hate dragons. Prapare to die!")
@@ -147,8 +152,8 @@ def dragon():
                 # TODO: Only allow Bards this option
                 print("3. Are you a dragon? Because you are firey hot.")
 
-                # TODO: Option appears only once all areas have been visited.
-                print("4. I'm stuck in the forest, and can't find a way out. Can you help me?")
+                if False not in areas_visitied:
+                    print("4. I'm stuck in the forest, and can't find a way out. Can you help me?")
                 
                 choice = input("What action do you take? (1-4): ")
                 if choice == "1":
@@ -162,33 +167,30 @@ def dragon():
                         print("She takes offense at the question and attacks.")
                         fight("Dragon")
                         dead_dragon()
-                        return True
 
                 elif choice == "2":
                     print("The dragons says nothing, but prepares to squish you like bug.")
                     fight("Dragon")
                     dead_dragon()
-                    return True
                 
                 elif choice == "3":
                     print("The dragon considers your words", end="")
                     if check(20, "Cha"):
                         print(".\nShe is flattered and asks what you need.")
                         print("You tell the dragon you need help getting home.")
-                        print("She tells you to climbe on her back and she'll fly you out.")
+                        print("She tells you to climb on her back, and she'll fly you out.")
                         print("You fly off into the sunset. The end.")
-                        return True
+                        return None
                     else:
                         print(" offensive.\nShe wants to bite off you head.")
                         fight("Dragon")
                         dead_dragon()
-                        return True
 
-                elif choice == "4":
+                elif choice == "4" and been_to_oasis:
                     print("You tell the dragon you need help getting home.")
                     print("She tells you to climb on her back and she'll fly you out.")
                     print("You fly off into the sunset. The end.")
-                    return True
+                    victory()
                 
                 else:
                     print("Not a valid choice. Try again.")
@@ -199,18 +201,16 @@ def dragon():
             get_gold(30)
             if check(20, "Dex"):
                 print("You successfully get away without waking the dragon.")
-                cave()
+                return False
             else:
                 print("...but your rumaging wakes the dragon, and she attacks.")
                 fight("Dragon")
                 dead_dragon()
-                return True
 
         if choice == "3":
             print("You charge in to attack the dragon. It hears you and wakes up for the fight.")
             fight("Dragon")
             dead_dragon()
-            return True
 
         elif choice == "4":
             print("You go back.")
@@ -219,56 +219,107 @@ def dragon():
             print("Not a valid choice. Try again.")
 
 def dead_dragon():
-    print("You slay the dragon.")
+    print("\nYou slay the dragon.")
     print("You pick up as much gold as you can carry.")
     get_gold(1000)
     print("You also find a magic broom.\nYou hop on and fly off into the sunset. The end.")
-    return True
+    victory()
+
+def oasis():
+    global been_to_oasis
+    been_to_oasis = True
+    while True:
+        print("\nYou find a small stream with only dense forest on the other side. There is nowhere to go but back.")
+        print("1. Rest for a bit before going back.")
+        print("2. Go back.")
+        choice = input("What action do you take? (1-2): ")
+        if choice == "1":
+            print("You sit down to rest for a bit. The cool water is very refreshing.")
+            rest()
+            print("After you finish resting, you get up and go back up the path.")
+            return False
+        elif choice == "2":
+            print("You turn back the way you came.")
+            return False
+        else: 
+            print("Not a valid choice. Try again.")
 
 def has_gold(val = 0):
-    return simple_rpg.player["gold"] >= val
+    return game.player.gold >= val and game.player.gold > 0
 
 def give_gold(val: int):
     if val == -1:
-        simple_rpg.player["gold"] = 0
+        game.player.gold = 0
     else:
-        simple_rpg.player["gold"] = max(simple_rpg.player["gold"] - val, 0)
+        game.player.gold = max(game.player.gold - val, 0)
 
 def get_gold(val: int):
-    simple_rpg.player["gold"] += val
+    game.player.gold += val
 
 def get_item(item: str):
-    simple_rpg.player["inventory"].append("Potion")
+    game.player.inventory.append("Potion")
 
 def fight(e):
-    simple_rpg.main(e)
+    game.battle_prep(e)
+    game.make_buttons()
+    game.run()
     if not alive():
         death()
 
 def alive():
-    return simple_rpg.player["hp"] > 0
+    return game.player.hp > 0
 
 def attack_up(val: int):
-    simple_rpg.player["attack"] += val
+    game.player.attack += val
     
 def defense_up(val: int):
-    simple_rpg.player["defense"] += val
+    game.player.defense += val
 
 def death():
     print("\nYou have died. Your journey is over.")
     input()
     exit()
 
+def victory():
+    print("You finished with", game.player.gold, "gold. Well done!")
+    exit()
+
 def check(dc, stat):
-    return random.randint(1, 20) + simple_rpg.player[stat] > dc
+    return random.randint(1, 20) + getattr(game.player, stat) > dc
+
+def rest():
+    heal_hp()
+    heal_mp()
+    print("Your HP and MP have been restored to full.")
+
+def heal_hp(val:int = None):
+    if val:
+        game.player.hp = min(game.player.max_hp, game.player.hp + val)
+    else:
+        game.player.hp = game.player.max_hp
+
+def heal_mp(val:int = None):
+    if val:
+        game.player.mp = min(game.player.max_mp, game.player.mp + val)
+    else:
+        game.player.mp = game.player.max_mp
+
+def init_player():
+    game.player.gold = 5
+    game.player.cha = 1
+    if game.player.name == "Bard":
+        game.player.cha += 3
+    game.player.dex = 3
+
+def press_enter_to_continue():
+    input("\nPress enter to continue...")
 
 if __name__ == "__main__":
-    simple_rpg.load_player()
-    simple_rpg.player["gold"] = 5
-    simple_rpg.player["Cha"] = 1
-    if simple_rpg.player["name"] == "Bard":
-        simple_rpg.player["Cha"] += 3
-    simple_rpg.player["Dex"] = 3
+    game = advanced_rpg.BattleGame()
+    game.run()
+    init_player()
     randomize_areas()
     main()
-    print("You finished with", simple_rpg.player["gold"], "gold. Well done!")
+    pygame.quit()
+    sys.exit()
+    

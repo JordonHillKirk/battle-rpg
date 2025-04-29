@@ -1,27 +1,10 @@
 import os
-import platform
 import pygame
 import random
 import sys
-import copy
 
 def getCurrentDirectory():
     return os.path.dirname(os.path.realpath(__file__)) + "\\"
-
-def restore_window():
-    if platform.system() == "Windows":
-        try:
-            import win32gui
-            import win32con
-            hwnd = pygame.display.get_wm_info()['window']
-            win32gui.ShowWindow(hwnd, win32con.SW_RESTORE)
-        except ImportError:
-            print("pywin32 is not installed. Cannot restore window on Windows.")
-        except Exception as e:
-            print(f"Error restoring window: {e}")
-    else:
-        print("Window restore is not supported on this platform.")
-
 
 # Initialize Pygame
 pygame.init()
@@ -153,9 +136,6 @@ class BattleGame:
             "Potion": {"heal": 20},
             "Power Boost": {"boost": 5}
         }
-        self.battle_prep()
-
-    def battle_prep(self, e = None):
         self.turn = "player"
         self.action = None
         self.selected_move = None
@@ -164,7 +144,7 @@ class BattleGame:
         self.sheep_block_active = False
         self.sheep_block_duration = 0
         self.sheep_eaten_count = 0
-        self.select_enemy(e)
+        self.enemy = random.choice(self.enemies)
         self.running = True
         self.last_player_action = ""
         self.last_enemy_action = ""
@@ -174,20 +154,7 @@ class BattleGame:
         self.special_turn_count = 0
         self.special_used = False
 
-    def select_enemy(self, e = None):
-        self.enemy = random.choice(self.enemies)
-        if e:
-            for en in self.enemies:
-                if en.name == e:
-                    self.enemy = copy.deepcopy(en)
-            if self.enemy == None:
-                self.enemy = copy.deepcopy(random.choice(self.enemies))
-        else:
-            self.enemy = copy.deepcopy(random.choice(self.enemies))
-
     def run(self):
-        self.running = True
-        restore_window()
         while self.running:
             screen.fill((0, 0, 0))
             self.handle_events()
@@ -195,8 +162,6 @@ class BattleGame:
             self.logic()
             pygame.display.flip()
             clock.tick(60)
-        pygame.display.iconify()
-        
 
     def handle_events(self):
         for event in pygame.event.get():
@@ -213,7 +178,6 @@ class BattleGame:
     def select_character(self, character):
         self.player = Player(**Player.load_player_from_file(character))
         self.in_character_select = False
-        self.running = False
         self.make_buttons()
 
     def make_buttons(self):
@@ -461,8 +425,6 @@ class BattleGame:
 
 if __name__ == "__main__":
     game = BattleGame()
-    game.select_enemy("Goblin")
-    game.run()
     game.run()
     pygame.quit()
     sys.exit()
