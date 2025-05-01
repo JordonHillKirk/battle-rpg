@@ -318,7 +318,7 @@ def print_gold():
     return game.player.gold
 
 def get_item(item: str):
-    game.player.inventory.append("Potion")
+    game.player.inventory.append(item)
 
 def fight(e):
     game.battle_prep(e)

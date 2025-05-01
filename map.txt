@@ -1,0 +1,32 @@
+area 0: Start
+forward: [1, 6]
+back: []
+
+area 1: Bandits
+forward: [2]
+back: [0]
+
+area 2: Fork
+forward: [3, 4]
+back: [1]
+
+area 3: Dead End
+forward: []
+back: [2]
+
+area 4: Goblin Toll
+forward: [5]
+back: [2]
+
+area 5: Cave
+forward: []
+back: [4]
+
+area 6: Traveling Merchant
+forward: [7]
+back: [0]
+
+area 7: Oasis
+forward: []
+back: [6]
+

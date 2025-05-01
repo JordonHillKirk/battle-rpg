@@ -177,6 +177,7 @@ class BattleGame:
         self.special_active = False
         self.special_turn_count = 0
         self.special_used = False
+        self.ran_away = False
 
     def select_enemy(self, e = None):
         self.enemy = random.choice(self.enemies)
@@ -291,6 +292,7 @@ class BattleGame:
         self.last_enemy_action = ""
         self.last_player_action = "You escaped!" if random.random() < 0.5 else "Failed to escape!"
         if self.last_player_action == "You escaped!":
+            self.ran_away = True
             pygame.time.delay(1000)
             self.running = False
         else:
