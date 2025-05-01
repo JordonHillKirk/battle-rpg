@@ -153,7 +153,8 @@ class BattleGame:
         }
         self.items = {
             "Potion": {"heal": 20},
-            "Power Boost": {"boost": 5}
+            "Power Boost": {"boost": 5},
+            "Dragon's Bane": {"kill dragon": True}
         }
         self.battle_prep()
 
@@ -321,6 +322,14 @@ class BattleGame:
             elif item_name == "Power Boost":
                 self.player.attack += self.items[item_name]["boost"]
                 self.last_player_action = "You used a Power Boost! Attack increased."
+            elif item_name == "Dragon's Bane":
+                if self.enemy.name == "Dragon":
+                    self.enemy.hp = 0
+                    self.last_player_action = "You used the Dragon's Bane!"
+                    self.last_enemy_action = "The Dragon falls dead."
+                else:
+                    self.last_player_action = "You used the Dragon's Bane...but it does nothing."
+
             self.turn = "enemy"
             self.make_buttons()
 
