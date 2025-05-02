@@ -691,7 +691,7 @@ if __name__ == "__main__":
     init_player()
 
     randomize_areas()
-    validate_map() #infinitely loops looking for an invalid map to properly test if maps are always valid. quits if it finds a problem
+    # validate_map() #infinitely loops looking for an invalid map to properly test if maps are always valid. quits if it finds a problem
 
     init_environmentals()
     main()
