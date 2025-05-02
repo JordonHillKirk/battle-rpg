@@ -1,51 +1,101 @@
-{'name': 'Start', 'func': <function validate_map.<locals>.<lambda> at 0x000001FCB1D50220>, 'index': 0}
-{'name': 'Traveling Merchant', 'func': <function validate_map.<locals>.<lambda> at 0x000001FCB1D500E0>, 'target': 25, 'index': 1}
-{'name': 'Actual Fork', 'func': <function validate_map.<locals>.<lambda> at 0x000001FCB1D7A700>, 'target': 10, 'index': 2}
-{'name': 'Bandits', 'func': <function validate_map.<locals>.<lambda> at 0x000001FCB1D4BEC0>, 'index': 3}
-{'name': 'Fork', 'func': <function validate_map.<locals>.<lambda> at 0x000001FCAFCA9080>, 'index': 4}
-{'name': 'Traveling Merchant', 'func': <function validate_map.<locals>.<lambda> at 0x000001FCB1D7A7A0>, 'target': 25, 'index': 5}
-{'name': 'Oasis', 'func': <function validate_map.<locals>.<lambda> at 0x000001FCB1D50040>, 'index': 6}
-{'name': 'Goblin Toll', 'func': <function validate_map.<locals>.<lambda> at 0x000001FCB1D4AC00>, 'index': 7}
-{'name': 'Dummy Cave', 'func': <function validate_map.<locals>.<lambda> at 0x000001FCB1D4BF60>, 'index': 8}
-{'name': 'Cave', 'func': <function validate_map.<locals>.<lambda> at 0x000001FCB1D50180>, 'index': 9}
+{'name': 'Start', 'func': <function validate_map.<locals>.<lambda> at 0x0000017C471902C0>, 'index': 0}
+{'name': 'Fork3', 'func': <function validate_map.<locals>.<lambda> at 0x0000017C471BEA20>, 'index': 1}
+{'name': 'Dead End2', 'func': <function validate_map.<locals>.<lambda> at 0x0000017C471BE8E0>, 'index': 2}
+{'name': 'Fork3', 'func': <function validate_map.<locals>.<lambda> at 0x0000017C471BF060>, 'index': 3}
+{'name': 'Fork3', 'func': <function validate_map.<locals>.<lambda> at 0x0000017C471BF100>, 'index': 4}
+{'name': 'Bandits', 'func': <function validate_map.<locals>.<lambda> at 0x0000017C4718AC00>, 'index': 5}
+{'name': 'Traveling Merchant', 'func': <function validate_map.<locals>.<lambda> at 0x0000017C4718BEC0>, 'target': 25, 'index': 6}
+{'name': 'Fork3', 'func': <function validate_map.<locals>.<lambda> at 0x0000017C471BE980>, 'index': 7}
+{'name': 'Oasis', 'func': <function validate_map.<locals>.<lambda> at 0x0000017C471BEC00>, 'index': 8}
+{'name': 'Goblin Toll', 'func': <function validate_map.<locals>.<lambda> at 0x0000017C450DA2A0>, 'index': 9}
+{'name': 'Dead End2', 'func': <function validate_map.<locals>.<lambda> at 0x0000017C471BEF20>, 'index': 10}
+{'name': 'Traveling Merchant', 'func': <function validate_map.<locals>.<lambda> at 0x0000017C47190040>, 'target': 25, 'index': 11}
+{'name': 'Actual Fork', 'func': <function validate_map.<locals>.<lambda> at 0x0000017C471BED40>, 'target': 10, 'index': 12}
+{'name': 'Fork2', 'func': <function validate_map.<locals>.<lambda> at 0x0000017C471BEAC0>, 'index': 13}
+{'name': 'Dead End2', 'func': <function validate_map.<locals>.<lambda> at 0x0000017C471BE7A0>, 'index': 14}
+{'name': 'Dummy Cave', 'func': <function validate_map.<locals>.<lambda> at 0x0000017C47190180>, 'index': 15}
+{'name': 'Fork', 'func': <function validate_map.<locals>.<lambda> at 0x0000017C4718BF60>, 'index': 16}
+{'name': 'Cave', 'func': <function validate_map.<locals>.<lambda> at 0x0000017C47190220>, 'index': 17}
+{'name': 'Dead End2', 'func': <function validate_map.<locals>.<lambda> at 0x0000017C471BECA0>, 'index': 18}
+{'name': 'Dead End', 'func': <function validate_map.<locals>.<lambda> at 0x0000017C471BEDE0>, 'index': 19}
 
 area 0: Start
-forward: [1, 7]
+forward: [1, 3]
 back: []
 
-area 1: Traveling Merchant
-forward: [2]
+area 1: Fork3
+forward: [2, 9]
 back: [0]
 
-area 2: Actual Fork
-forward: [3]
+area 2: Dead End2
+forward: []
 back: [1]
 
-area 3: Bandits
-forward: [4]
-back: [2]
+area 3: Fork3
+forward: [4, 11]
+back: [0]
 
-area 4: Fork
-forward: [5, 9]
+area 4: Fork3
+forward: [5, 17]
 back: [3]
 
-area 5: Traveling Merchant
+area 5: Bandits
 forward: [6]
 back: [4]
 
-area 6: Oasis
-forward: []
+area 6: Traveling Merchant
+forward: [7]
 back: [5]
 
-area 7: Goblin Toll
-forward: [9]
-back: [0]
+area 7: Fork3
+forward: [8, 16]
+back: [6]
 
-area 8: Dummy Cave
+area 8: Oasis
+forward: []
+back: [7]
+
+area 9: Goblin Toll
+forward: [10]
+back: [1]
+
+area 10: Dead End2
+forward: []
+back: [9]
+
+area 11: Traveling Merchant
+forward: [12]
+back: [3]
+
+area 12: Actual Fork
+forward: [13]
+back: [11]
+
+area 13: Fork2
+forward: [14, 18]
+back: [12]
+
+area 14: Dead End2
+forward: []
+back: [13]
+
+area 15: Dummy Cave
 forward: []
 back: []
 
-area 9: Cave
+area 16: Fork
+forward: [17, 19]
+back: [7]
+
+area 17: Cave
 forward: []
-back: [4, 7]
+back: [4, 16]
+
+area 18: Dead End2
+forward: []
+back: [13]
+
+area 19: Dead End
+forward: []
+back: [16]
 

@@ -58,7 +58,7 @@ def randomize_areas():
         connections[to_area]["back"].append(from_area)
 
     def find_area_index(a):
-        return next(idx for idx, area in enumerate(areas) if area["name"] == a["name"])
+        return next(idx for idx, area in enumerate(areas) if area == a)
 
 
     areas.extend(normal_areas)
@@ -662,12 +662,20 @@ def validate_map():
         ]
         branching_areas = [
             {"name": "Fork", "func": lambda: fork()},
-            # {"name": "Fork2", "func": lambda: fork()},
+            {"name": "Fork2", "func": lambda: fork()},
+            {"name": "Fork3", "func": lambda: fork()},
+            {"name": "Fork3", "func": lambda: fork()},
+            {"name": "Fork3", "func": lambda: fork()},
+            {"name": "Fork3", "func": lambda: fork()},
         ]
         endpoints = [
             {"name": "Cave", "func": lambda: cave()},
             {"name": "Oasis", "func": lambda: oasis()},
-            # {"name": "Dead End", "func": lambda: dead_end()},
+            {"name": "Dead End", "func": lambda: dead_end()},
+            {"name": "Dead End2", "func": lambda: dead_end()},
+            {"name": "Dead End2", "func": lambda: dead_end()},
+            {"name": "Dead End2", "func": lambda: dead_end()},
+            {"name": "Dead End2", "func": lambda: dead_end()},
         ]
         dummy_endpoints = [
             {"name": "Dummy Cave", "func": lambda: cave()},
