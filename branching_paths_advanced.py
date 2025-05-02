@@ -16,8 +16,9 @@ areas = [
     {"name": "Fork", "func": lambda: fork()},
 ]
 random_encounters = [
-    {"name": "Traveling Merchant", "func": lambda: traveling_merchant()},
-    {"name": "Actual Fork", "func": lambda: actual_fork()},
+    {"name": "Traveling Merchant", "func": lambda: traveling_merchant(), "target": 25},
+    {"name": "Traveling Merchant", "func": lambda: traveling_merchant(), "target": 25},
+    {"name": "Actual Fork", "func": lambda: actual_fork(), "target": 100},
 ]
 areas_visited = []
 connections = {}
@@ -97,46 +98,53 @@ def main():
     direction = "forward"
     last_area = 0
     while current is not None and 0 <= current < len(areas):
+        if current == 0:
+            direction = "forward" 
         current, direction, last_area = area(current, direction, last_area)
 
 def area(num, dir, last_area):
+    global merchant_found, side_path, fork_encountered
     areas_visited[num] = True
 
-    while True:
-        global merchant_found, side_path, fork_encountered
-        if areas[num]["name"] == "Fork" and last_area != connections[num]["forward"][1]:
-            side_path = False
+    i = None
+    direction = None
+    area = areas[num]
+    
+    if area["name"] == "Fork" and last_area != connections[num]["forward"][1]:
+        side_path = False
 
-        direction, index = areas[num]["func"]()
-        if areas[num] not in random_encounters:
-            press_enter_to_continue()
-        elif areas[num]["name"] == "Traveling Merchant" and merchant_found:
-            merchant_found = False
-            press_enter_to_continue()
-        elif areas[num]["name"] == "Actual Fork" and fork_encountered:
-            fork_encountered = False
-            press_enter_to_continue()
-
-        if index == -1:
-            return last_area, "forward" if direction == dir else "back", num
-        if index == -2:
+    if area in random_encounters:
+        if random.randint(1, 100) > area["target"]:
+            direction = "forward"
+            i = 0
             d = "forward" if direction == dir else "back"
-            val = connections[num][d][0]
-            if val == last_area:
-                val = connections[num][d][1]
+            return connections[num][d][i], d, num
+    
+    direction, i = area["func"]()
+    if area not in random_encounters:
+        press_enter_to_continue()
+    elif area["name"] == "Traveling Merchant" and merchant_found:
+        merchant_found = False
+        press_enter_to_continue()
+    elif area["name"] == "Actual Fork" and fork_encountered:
+        fork_encountered = False
+        press_enter_to_continue()
+    
+    d = "forward" if direction == dir else "back"
 
-            return val, d, num
-
-        if direction == dir:
-            return connections[num]["forward"][index], "forward", num
-        else:
-            if index < len(connections[num]["back"]):
-                return connections[num]["back"][index], "back", num
-            else:
-                return connections[num]["forward"][index], "forward", num
-
+    if i == -1:
+        return last_area, d, num
+    elif i == -2:
+        i = connections[num][d][0]
+        if i == last_area:
+            i = connections[num][d][1]
+        return i, d, num
+    else:
+        return connections[num][d][i], d, num
+    
 def forward(option = 0):
     return "forward", option
+
 def back(option = 0):
     return "back", option
 
@@ -223,60 +231,56 @@ def bandits():
 
 def traveling_merchant():
     global merchant_found
-    if random.randint(1, 100) <= 25:
-        merchant_found = True
-        while True:
-            print("\nYou spot a traveling merchant on the side of the path.")
-            print("They say they have helpful goods to sell.")
-            print("Do you stop to browse their wares?")
-            print("1. Yes, stop to browse.")
-            print("2. No, keep moving on.")
-            choice = input("What action do you take? (1-2): ")
-            if choice == "1":
-                while True:
-                    print(f"\nYou have {print_gold()} gold.")
-                    print("The following items are available for purchase: ")
-                    print("1. Potion (5 gold)" + ("" if has_gold(5) else "[Not enough gold]"))
-                    print("2. Power Boost (10 gold)" + ("" if has_gold(10) else "[Not enough gold]"))
-                    print("3. Dragon's Bane (30 gold)" + ("" if has_gold(30) else "[Not enough gold]"))
-                    print("4. Buy nothing")
-                    choice = input("What do you buy? (1-4): ") 
-                    print()
-                    if choice == "1" and has_gold(5):
-                        print("You buy a Potion")
-                        print("[You spent 5 gold]")
-                        print("[You gained a Potion]")
-                        give_gold(5)
-                        get_item("Potion") 
-                    elif choice == "2" and has_gold(10):
-                        print("You buy a Power Boost")
-                        print("[You spent 10 gold]")
-                        print("[You gained a Power Boost]")
-                        give_gold(10)
-                        get_item("Power Boost")
-                    elif choice == "3" and has_gold(30):
-                        print("You buy a Dragon's Bane")
-                        print("[You spent 30 gold]")
-                        print("[You gained a Dragon's Bane]")
-                        give_gold(30)
-                        get_item("Dragon's Bane")
-                    elif choice == "4":
-                        print("You say goodbye to the merchant, and move on.")
-                        return forward()
+    merchant_found = True
+    while True:
+        print("\nYou spot a traveling merchant on the side of the path.")
+        print("They say they have helpful goods to sell.")
+        print("Do you stop to browse their wares?")
+        print("1. Yes, stop to browse.")
+        print("2. No, keep moving on.")
+        choice = input("What action do you take? (1-2): ")
+        if choice == "1":
+            while True:
+                print(f"\nYou have {print_gold()} gold.")
+                print("The following items are available for purchase: ")
+                print("1. Potion (5 gold)" + ("" if has_gold(5) else "[Not enough gold]"))
+                print("2. Power Boost (10 gold)" + ("" if has_gold(10) else "[Not enough gold]"))
+                print("3. Dragon's Bane (30 gold)" + ("" if has_gold(30) else "[Not enough gold]"))
+                print("4. Buy nothing")
+                choice = input("What do you buy? (1-4): ") 
+                print()
+                if choice == "1" and has_gold(5):
+                    print("You buy a Potion")
+                    print("[You spent 5 gold]")
+                    print("[You gained a Potion]")
+                    give_gold(5)
+                    get_item("Potion") 
+                elif choice == "2" and has_gold(10):
+                    print("You buy a Power Boost")
+                    print("[You spent 10 gold]")
+                    print("[You gained a Power Boost]")
+                    give_gold(10)
+                    get_item("Power Boost")
+                elif choice == "3" and has_gold(30):
+                    print("You buy a Dragon's Bane")
+                    print("[You spent 30 gold]")
+                    print("[You gained a Dragon's Bane]")
+                    give_gold(30)
+                    get_item("Dragon's Bane")
+                elif choice == "4":
+                    print("You say goodbye to the merchant, and move on.")
+                    return forward()
+                else:
+                    if choice in ["1", "2", "3"]:
+                        print("You do not have enough gold for that item.")
                     else:
-                        if choice in ["1", "2", "3"]:
-                            print("You do not have enough gold for that item.")
-                        else:
-                            print("Not a valid choice. Try again.")
-                    press_enter_to_continue()
-                        
-            elif choice == "2":
-                print("You keep going.")
-                return forward()
-            else:
-                print("Not a valid choice. Try again.")
-    else:
-        return forward()
+                        print("Not a valid choice. Try again.")
+                press_enter_to_continue()   
+        elif choice == "2":
+            print("You keep going.")
+            return forward()
+        else:
+            print("Not a valid choice. Try again.")
 
 def cave():
     while True:
@@ -423,40 +427,56 @@ def dead_end():
 
 def fork():
     global side_path
-    print("\nYou come to a T-intersection", end="")
-    if side_path:
-        print(".\nYou are coming from the side path.")
-    else:
-        print(" with a path leading off to the side.")
-    print(f"1. {'Turn away from the first area' if side_path else 'Continue straight'}")
-    print(f"2. {'Take' if not side_path else 'Return to'} the side path.")
-    print(f"3. {'Turn toward the first area' if side_path else 'Go back the way you came'}")
-    choice = input("Which way do you choose? (1-3): ")
-    if choice == "1":
+    while True:
+        print("\nYou come to a T-intersection", end="")
         if side_path:
-            side_path = False
-            return back(0)
-        return forward(0)
-    if choice == "2":
-        side_path = True
-        return forward(1)
-    if choice == "3":
-        if side_path:
-            side_path = False
-            return forward()
-        return back()
+            print(".\nYou are coming from the side path.")
+        else:
+            print(" with a path leading off to the side.")
+        print(f"1. {'Turn away from the first area' if side_path else 'Continue straight'}")
+        print(f"2. {'Take' if not side_path else 'Return to'} the side path.")
+        print(f"3. {'Turn toward the first area' if side_path else 'Go back the way you came'}")
+        choice = input("Which way do you choose? (1-3): ")
+        if choice == "1":
+            if side_path:
+                side_path = False
+                return back(0)
+            return forward(0)
+        elif choice == "2":
+            side_path = True
+            return forward(1)
+        elif choice == "3":
+            if side_path:
+                side_path = False
+                return forward()
+            return back()
+        else:
+            print("Not a valid choice. Try again.")
 
 def actual_fork():
     global fork_found, fork_encountered
-    if not fork_found and random.randint(1, 100) <= 10:
-        fork_found = True
-        fork_encountered = True
+    if fork_found:
+        return forward()
+    fork_found = True
+    fork_encountered = True
+    while True:
         print("\nYou come to a fork in the road.")
         print("Not that kind, this is an actual fork!")
-        print("You pick it up and discover it is magical.")
-        print("[You equipped \"The Fork\". (+20 Attack)]")
-        attack_up(20)
-        print("You continue down the path.")
+        print("Do you pick it up?")
+        print("1. Yes")
+        print("2. No")
+        choice = input("Which do you choose? (1-2): ")
+        if choice == "1":
+            print("You pick up the fork and discover it is magical.")
+            print("[You equipped \"The Fork\". (+20 Attack)]")
+            attack_up(20)
+            break
+        elif choice == "2":
+            print("You leave the unimportant fork where it is.")
+            break
+        else:
+            print("Not a valid choice. Try again.")
+    print("You continue down the path.")
     return forward()
 
 def get_name():
