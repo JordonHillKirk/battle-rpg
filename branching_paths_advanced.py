@@ -648,13 +648,31 @@ def validate_map():
         dfs(0)  # Start from Start (index 0)
         
     while check_reachability() and check_forward_back_consistency():
-        areas.clear()
-        global endpoints
+        global areas, s, normal_areas, random_encounters, branching_areas, endpoints, dummy_endpoints, connections
+        areas = []
+        s = {"name": "Start", "func": lambda: start()}
+        normal_areas = [
+            {"name": "Goblin Toll", "func": lambda: goblin_toll()},
+            {"name": "Bandits", "func": lambda: bandits()},
+        ]
+        random_encounters = [
+            {"name": "Traveling Merchant", "func": lambda: traveling_merchant(), "target": 25},
+            {"name": "Traveling Merchant", "func": lambda: traveling_merchant(), "target": 25},
+            {"name": "Actual Fork", "func": lambda: actual_fork(), "target": 10},
+        ]
+        branching_areas = [
+            {"name": "Fork", "func": lambda: fork()},
+            # {"name": "Fork2", "func": lambda: fork()},
+        ]
         endpoints = [
             {"name": "Cave", "func": lambda: cave()},
             {"name": "Oasis", "func": lambda: oasis()},
-            # {"name": "Dead End", "func": lambda: dead_end()}
+            # {"name": "Dead End", "func": lambda: dead_end()},
         ]
+        dummy_endpoints = [
+            {"name": "Dummy Cave", "func": lambda: cave()},
+        ]
+        connections = {}
         randomize_areas()
     visualize_map()
     exit()
