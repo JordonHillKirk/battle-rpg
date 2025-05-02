@@ -1,40 +1,51 @@
+{'name': 'Start', 'func': <function <lambda> at 0x000001FB66AC9080>, 'index': 0}
+{'name': 'Oasis', 'func': <function validate_map.<locals>.<lambda> at 0x000001FB68B90180>, 'index': 1}
+{'name': 'Traveling Merchant', 'func': <function <lambda> at 0x000001FB68B8BF60>, 'target': 25, 'index': 2}
+{'name': 'Traveling Merchant', 'func': <function <lambda> at 0x000001FB68B8BEC0>, 'target': 25, 'index': 3}
+{'name': 'Fork', 'func': <function <lambda> at 0x000001FB68B900E0>, 'index': 4}
+{'name': 'Goblin Toll', 'func': <function <lambda> at 0x000001FB66ACA2A0>, 'index': 5}
+{'name': 'Actual Fork', 'func': <function <lambda> at 0x000001FB68B90040>, 'target': 10, 'index': 6}
+{'name': 'Bandits', 'func': <function <lambda> at 0x000001FB68B8AC00>, 'index': 7}
+{'name': 'Dummy Cave', 'func': <function <lambda> at 0x000001FB68B902C0>, 'index': 8}
+{'name': 'Cave', 'func': <function validate_map.<locals>.<lambda> at 0x000001FB68B90220>, 'index': 9}
+
 area 0: Start
-forward: [1, 5]
+forward: [1, 2]
 back: []
 
-area 1: Traveling Merchant
-forward: [2]
+area 1: Oasis
+forward: []
 back: [0]
 
-area 2: Actual Fork
+area 2: Traveling Merchant
 forward: [3]
-back: [1]
+back: [0]
 
-area 3: Bandits
-forward: [8]
+area 3: Traveling Merchant
+forward: [4]
 back: [2]
 
-area 4: Dummy Cave
-forward: []
-back: []
+area 4: Fork
+forward: [5, 9]
+back: [3]
 
-area 5: Traveling Merchant
+area 5: Goblin Toll
 forward: [6]
-back: [0]
+back: [4]
 
-area 6: Goblin Toll
+area 6: Actual Fork
 forward: [7]
 back: [5]
 
-area 7: Fork
-forward: [8, 9]
+area 7: Bandits
+forward: [9]
 back: [6]
 
-area 8: Cave
+area 8: Dummy Cave
 forward: []
-back: [3, 7]
+back: []
 
-area 9: Oasis
+area 9: Cave
 forward: []
-back: [7]
+back: [4, 7]
 

@@ -3,22 +3,28 @@ import random
 import pygame
 import sys
 
+areas = []
 s = {"name": "Start", "func": lambda: start()}
-endpoints = [
-    {"name": "Cave", "func": lambda: cave()},
-    {"name": "Dummy Cave", "func": lambda: cave()},
-    {"name": "Oasis", "func": lambda: oasis()},
-    # {"name": "Dead End", "func": lambda: dead_end()}
-]
-areas = [
+normal_areas = [
     {"name": "Goblin Toll", "func": lambda: goblin_toll()},
     {"name": "Bandits", "func": lambda: bandits()},
-    {"name": "Fork", "func": lambda: fork()},
 ]
 random_encounters = [
     {"name": "Traveling Merchant", "func": lambda: traveling_merchant(), "target": 25},
     {"name": "Traveling Merchant", "func": lambda: traveling_merchant(), "target": 25},
-    {"name": "Actual Fork", "func": lambda: actual_fork(), "target": 100},
+    {"name": "Actual Fork", "func": lambda: actual_fork(), "target": 10},
+]
+branching_areas = [
+    {"name": "Fork", "func": lambda: fork()},
+    # {"name": "Fork2", "func": lambda: fork()},
+]
+endpoints = [
+    {"name": "Cave", "func": lambda: cave()},
+    {"name": "Oasis", "func": lambda: oasis()},
+    # {"name": "Dead End", "func": lambda: dead_end()}
+]
+dummy_endpoints = [
+    {"name": "Dummy Cave", "func": lambda: cave()},
 ]
 areas_visited = []
 connections = {}
@@ -35,6 +41,9 @@ def init_environmentals():
 
 def print_connections(connections):
     with open(advanced_rpg.getCurrentDirectory() + "map.txt", "w") as f:
+        for area in areas:
+            f.write(str(area) + "\n")
+        f.write("\n")
         for area in list(connections.keys()):
             f.write(f"area {area}: {str(areas[area]["name"])}\n")
             f.write(f"forward: {str(connections[area]['forward'])}\n")
@@ -43,52 +52,61 @@ def print_connections(connections):
 
 def randomize_areas():
     def connect(from_area: int, to_area: int):
-        if to_area == dummy_cave_index:
-            to_area = cave_index
+        if areas[to_area]["name"] == "Dummy Cave":
+            to_area = next(area["index"] for area in areas if area["name"] == "Cave")
         connections[from_area]["forward"].append(to_area)
         connections[to_area]["back"].append(from_area)
 
-    branch_index = None
-    endpoint0_index = None
+    def find_area_index(a):
+        return next(idx for idx, area in enumerate(areas) if area["name"] == a["name"])
+
+
+    areas.extend(normal_areas)
     areas.extend(random_encounters)
+    areas.extend(branching_areas)
+
+    endpoints.extend(dummy_endpoints)
     random.shuffle(endpoints)
+
+    # Step 1: Add first endpoint
     areas.append(endpoints[0])
+
     random.shuffle(areas)
-    areas.insert(0, s)
+    areas.insert(0, s)  # Start at beginning
+
+    # Step 2: Set indices
     for i, area in enumerate(areas):
-        if area["name"] == "Fork":
-            branch_index = i
-        elif area == endpoints[0]:
-            endpoint0_index = i
-    
-    endpoint1_index = random.randint(branch_index + 1, len(areas))
-    areas.insert(endpoint1_index, endpoints[1])
-    areas.append(endpoints[2])
+        area["index"] = i
+
+    # Step 3: Insert endpoint for each branching area
+    for i, branch in enumerate(branching_areas, start=1):  # start=1, because endpoints[1], endpoints[2], etc.
+        branch_index = find_area_index(branch)
+        insert_index = random.randint(branch_index + 1, len(areas))
+        areas.insert(insert_index, endpoints[i])
+
+    # Step 4: Add the final endpoint (the last one) 
+    areas.append(endpoints[-1])
+
+    # Step 5: Re-index after all changes
     for i, area in enumerate(areas):
-        if area == endpoints[0]:
-            endpoint0_index = i
-        elif area == endpoints[1]:
-            endpoint1_index = i
-        elif area["name"] == "Fork":
-            branch_index = i
-        if area["name"] == "Dummy Cave":
-            global dummy_cave_index
-            dummy_cave_index = i
-        if area["name"] == "Cave":
-            global cave_index
-            cave_index = i
+        area["index"] = i
         connections[i] = {"forward": [], "back": []}
+
+    endpoints.sort(key=lambda ep: ep["index"])
+    branching_areas.sort(key=lambda br: br["index"])
+    # Step 6: Connect areas
     for i, area in enumerate(areas):
         if area["name"] == "Start":
-            connect(i, i+1)
-            connect(i, endpoint0_index + 1)
-        elif area["name"] == "Fork":
-            connect(i, i+1)
-            connect(i, endpoint1_index + 1)
+            connect(i, i + 1)
+            connect(i, endpoints[0]["index"] + 1)  # Start connects to first endpoint
+        elif area in branching_areas:
+            branch_index = branching_areas.index(area)
+            connect(i, i + 1)
+            connect(i, endpoints[branch_index + 1]["index"] + 1)  # Each branch connects to its matching endpoint
         elif area in endpoints:
-            pass
+            pass  # Endpoints don't connect forward
         else:
-            connect(i, i+1)
+            connect(i, i + 1)
 
     print_connections(connections)
 
@@ -443,6 +461,8 @@ def fork():
                 return back(0)
             return forward(0)
         elif choice == "2":
+            if side_path:
+                return back(-1)
             side_path = True
             return forward(1)
         elif choice == "3":
@@ -566,11 +586,87 @@ def init_player():
 def press_enter_to_continue():
     input("\nPress enter to continue...")
 
+def validate_map():
+    def check_reachability():
+        visited = set()
+        stack = [0]  # Start at area 0 (Start)
+
+        while stack:
+            current = stack.pop()
+            if current in visited:
+                continue
+            visited.add(current)
+            for neighbor in connections[current]["forward"]:
+                stack.append(neighbor)
+
+        print(f"Areas reachable from Start: {sorted(visited)}")
+        if len(visited) < len(areas) - len(dummy_endpoints):
+            print("Warning: Some areas are unreachable!")
+            return False
+        else:
+            print("All areas are reachable.")
+            return True
+        
+    def check_forward_back_consistency():
+        all_good = True
+        for i, conn in connections.items():
+            for fwd in conn["forward"]:
+                if i not in connections[fwd]["back"]:
+                    print(f"Inconsistent: {areas[i]['name']} -> {areas[fwd]['name']} missing back link!")
+                    all_good = False
+            for back in conn["back"]:
+                if i not in connections[back]["forward"]:
+                    print(f"Inconsistent: {areas[i]['name']} <- {areas[back]['name']} missing forward link!")
+                    all_good = False
+        if all_good:
+            print("All forward/back connections are consistent.")
+        return all_good
+    
+    def visualize_map():
+        def dfs(area, depth=0, visited=None):
+            if visited is None:
+                visited = set()
+            indent = "  " * depth
+            area_name = areas[area]["name"]
+            forward_links = connections[area]["forward"]
+
+            # Detect dead-end (no forward paths)
+            if not forward_links:
+                color_code = "\033[91m"  # Red for dead-end
+            else:
+                color_code = "\033[0m"   # Default
+
+            print(f"{indent}- {color_code}{area_name} (#{area})\033[0m")
+            visited.add(area)
+            for next_area in forward_links:
+                if next_area not in visited:
+                    dfs(next_area, depth + 1, visited)
+                else:
+                    print(f"{'  ' * (depth + 1)}↪ {areas[next_area]['name']} (#{next_area}) [already visited]")
+        
+        print("\nMAP VISUALIZATION:")
+        dfs(0)  # Start from Start (index 0)
+        
+    while check_reachability() and check_forward_back_consistency():
+        areas.clear()
+        global endpoints
+        endpoints = [
+            {"name": "Cave", "func": lambda: cave()},
+            {"name": "Oasis", "func": lambda: oasis()},
+            # {"name": "Dead End", "func": lambda: dead_end()}
+        ]
+        randomize_areas()
+    visualize_map()
+    exit()
+
 if __name__ == "__main__":
     game = advanced_rpg.BattleGame()
     game.run()
     init_player()
+
     randomize_areas()
+    validate_map() #infinitely loops looking for an invalid map to properly test if maps are always valid. quits if it finds a problem
+
     init_environmentals()
     main()
     pygame.quit()
