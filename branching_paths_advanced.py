@@ -6,18 +6,31 @@ import sys
 s = {"name": "Start", "func": lambda: start()}
 endpoints = [
     {"name": "Cave", "func": lambda: cave()},
+    {"name": "Dummy Cave", "func": lambda: cave()},
     {"name": "Oasis", "func": lambda: oasis()},
-    {"name": "Dead End", "func": lambda: dead_end()}
+    # {"name": "Dead End", "func": lambda: dead_end()}
 ]
 areas = [
     {"name": "Goblin Toll", "func": lambda: goblin_toll()},
     {"name": "Bandits", "func": lambda: bandits()},
-    {"name": "Traveling Merchant", "func": lambda: traveling_merchant()}
+    {"name": "Fork", "func": lambda: fork()},
 ]
-branch = {"name": "Fork", "func": lambda: fork()}
+random_encounters = [
+    {"name": "Traveling Merchant", "func": lambda: traveling_merchant()},
+    {"name": "Actual Fork", "func": lambda: actual_fork()},
+]
 areas_visited = []
 connections = {}
 side_path = False
+
+def init_environmentals():
+    global merchant_found, fork_found, fork_encountered
+    merchant_found = False
+    fork_found = False
+    fork_encountered = False
+
+    for _ in areas:
+        areas_visited.append(False)
 
 def print_connections(connections):
     with open(advanced_rpg.getCurrentDirectory() + "map.txt", "w") as f:
@@ -29,35 +42,46 @@ def print_connections(connections):
 
 def randomize_areas():
     def connect(from_area: int, to_area: int):
+        if to_area == dummy_cave_index:
+            to_area = cave_index
         connections[from_area]["forward"].append(to_area)
         connections[to_area]["back"].append(from_area)
 
     branch_index = None
     endpoint0_index = None
-
-    areas.append(branch)
+    areas.extend(random_encounters)
     random.shuffle(endpoints)
     areas.append(endpoints[0])
     random.shuffle(areas)
     areas.insert(0, s)
     for i, area in enumerate(areas):
-        if area == branch:
+        if area["name"] == "Fork":
             branch_index = i
         elif area == endpoints[0]:
             endpoint0_index = i
     
     endpoint1_index = random.randint(branch_index + 1, len(areas))
-    if endpoint1_index <= endpoint0_index:
-        endpoint0_index += 1
     areas.insert(endpoint1_index, endpoints[1])
     areas.append(endpoints[2])
-    for i in range(len(areas)):
+    for i, area in enumerate(areas):
+        if area == endpoints[0]:
+            endpoint0_index = i
+        elif area == endpoints[1]:
+            endpoint1_index = i
+        elif area["name"] == "Fork":
+            branch_index = i
+        if area["name"] == "Dummy Cave":
+            global dummy_cave_index
+            dummy_cave_index = i
+        if area["name"] == "Cave":
+            global cave_index
+            cave_index = i
         connections[i] = {"forward": [], "back": []}
     for i, area in enumerate(areas):
-        if area == s:
+        if area["name"] == "Start":
             connect(i, i+1)
             connect(i, endpoint0_index + 1)
-        elif area == branch:
+        elif area["name"] == "Fork":
             connect(i, i+1)
             connect(i, endpoint1_index + 1)
         elif area in endpoints:
@@ -65,34 +89,51 @@ def randomize_areas():
         else:
             connect(i, i+1)
 
-    for _ in areas:
-        areas_visited.append(False)
-
     print_connections(connections)
 
 def main():
     print("You wake up in a dark forest.")
     current = 0
     direction = "forward"
+    last_area = 0
     while current is not None and 0 <= current < len(areas):
-        current, direction = area(current, direction)
+        current, direction, last_area = area(current, direction, last_area)
 
-def area(num, dir = "forward"):
+def area(num, dir, last_area):
     areas_visited[num] = True
 
     while True:
-        global merchant_found
+        global merchant_found, side_path, fork_encountered
+        if areas[num]["name"] == "Fork" and last_area != connections[num]["forward"][1]:
+            side_path = False
+
         direction, index = areas[num]["func"]()
-        if areas[num]["name"] != "Traveling Merchant" or merchant_found == True:
+        if areas[num] not in random_encounters:
+            press_enter_to_continue()
+        elif areas[num]["name"] == "Traveling Merchant" and merchant_found:
+            merchant_found = False
+            press_enter_to_continue()
+        elif areas[num]["name"] == "Actual Fork" and fork_encountered:
+            fork_encountered = False
             press_enter_to_continue()
 
+        if index == -1:
+            return last_area, "forward" if direction == dir else "back", num
+        if index == -2:
+            d = "forward" if direction == dir else "back"
+            val = connections[num][d][0]
+            if val == last_area:
+                val = connections[num][d][1]
+
+            return val, d, num
+
         if direction == dir:
-            return connections[num]["forward"][index], "forward"
+            return connections[num]["forward"][index], "forward", num
         else:
             if index < len(connections[num]["back"]):
-                return connections[num]["back"][index], "back"
+                return connections[num]["back"][index], "back", num
             else:
-                return connections[num]["forward"][index], "forward"
+                return connections[num]["forward"][index], "forward", num
 
 def forward(option = 0):
     return "forward", option
@@ -182,7 +223,6 @@ def bandits():
 
 def traveling_merchant():
     global merchant_found
-    merchant_found = False
     if random.randint(1, 100) <= 25:
         merchant_found = True
         while True:
@@ -242,17 +282,21 @@ def cave():
     while True:
         print("\nYou find a cave entrance.")
         print("The smell of smoke emanates from within.")
-        print("Do you enter or turn back?")
-        print("1. Enter the cave.")
-        print("2. Turn back.")
-        choice = input("What action do you take? (1-2): ")
+        print("Do you enter, turn back, or try the other path?")
+        print("1. Enter the cave")
+        print("2. Turn back")
+        print("3. Other path")
+        choice = input("What action do you take? (1-3): ")
         print()
         if choice == "1":
             print("You step into the cave.")
             dragon()
         elif choice == "2":
             print("You go back.")
-            return back()
+            return back(-1)
+        elif choice == "3":
+            print("You go up the other path.")
+            return back(-2)
         else:
             print("Not a valid choice. Try again.")
 
@@ -379,20 +423,41 @@ def dead_end():
 
 def fork():
     global side_path
-    print("\nYou come to a fork in the road.")
-    print("1. Continue Straight")
+    print("\nYou come to a T-intersection", end="")
+    if side_path:
+        print(".\nYou are coming from the side path.")
+    else:
+        print(" with a path leading off to the side.")
+    print(f"1. {'Turn away from the first area' if side_path else 'Continue straight'}")
     print(f"2. {'Take' if not side_path else 'Return to'} the side path.")
-    print("3. Go Back")
-    choice = input("> ")
+    print(f"3. {'Turn toward the first area' if side_path else 'Go back the way you came'}")
+    choice = input("Which way do you choose? (1-3): ")
     if choice == "1":
-        side_path = False
+        if side_path:
+            side_path = False
+            return back(0)
         return forward(0)
     if choice == "2":
         side_path = True
         return forward(1)
     if choice == "3":
-        side_path = False
+        if side_path:
+            side_path = False
+            return forward()
         return back()
+
+def actual_fork():
+    global fork_found, fork_encountered
+    if not fork_found and random.randint(1, 100) <= 10:
+        fork_found = True
+        fork_encountered = True
+        print("\nYou come to a fork in the road.")
+        print("Not that kind, this is an actual fork!")
+        print("You pick it up and discover it is magical.")
+        print("[You equipped \"The Fork\". (+20 Attack)]")
+        attack_up(20)
+        print("You continue down the path.")
+    return forward()
 
 def get_name():
     return game.player.name
@@ -486,6 +551,7 @@ if __name__ == "__main__":
     game.run()
     init_player()
     randomize_areas()
+    init_environmentals()
     main()
     pygame.quit()
     sys.exit()
