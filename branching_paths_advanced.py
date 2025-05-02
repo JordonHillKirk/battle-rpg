@@ -3,30 +3,101 @@ import random
 import pygame
 import sys
 
+s = {"name": "Start", "func": lambda: start()}
 endpoints = [
-    lambda: cave(),
-    lambda: oasis()
+    {"name": "Cave", "func": lambda: cave()},
+    {"name": "Oasis", "func": lambda: oasis()},
+    {"name": "Dead End", "func": lambda: dead_end()}
 ]
 areas = [
-    lambda: goblin_toll(),
-    lambda: bandits(),
-    lambda: traveling_merchant()
+    {"name": "Goblin Toll", "func": lambda: goblin_toll()},
+    {"name": "Bandits", "func": lambda: bandits()},
+    {"name": "Traveling Merchant", "func": lambda: traveling_merchant()}
 ]
-areas_visitied = []
+branch = {"name": "Fork", "func": lambda: fork()}
+areas_visited = []
+connections = {}
+side_path = False
 
-def main():
-    print("You wake up in a dark forest.")
-    start()
+def print_connections(connections):
+    with open(advanced_rpg.getCurrentDirectory() + "map.txt", "w") as f:
+        for area in list(connections.keys()):
+            f.write(f"area {area}: {str(areas[area]["name"])}\n")
+            f.write(f"forward: {str(connections[area]['forward'])}\n")
+            f.write(f"back: {str(connections[area]['back'])}\n")
+            f.write("\n")
 
 def randomize_areas():
-    global cave_num
+    def connect(from_area: int, to_area: int):
+        connections[from_area]["forward"].append(to_area)
+        connections[to_area]["back"].append(from_area)
+
+    branch_index = None
+    endpoint0_index = None
+
+    areas.append(branch)
     random.shuffle(endpoints)
     areas.append(endpoints[0])
     random.shuffle(areas)
-    areas.append(endpoints[1])
-    cave_num = areas.index(endpoints[0])
+    areas.insert(0, s)
+    for i, area in enumerate(areas):
+        if area == branch:
+            branch_index = i
+        elif area == endpoints[0]:
+            endpoint0_index = i
+    
+    endpoint1_index = random.randint(branch_index + 1, len(areas))
+    if endpoint1_index <= endpoint0_index:
+        endpoint0_index += 1
+    areas.insert(endpoint1_index, endpoints[1])
+    areas.append(endpoints[2])
+    for i in range(len(areas)):
+        connections[i] = {"forward": [], "back": []}
+    for i, area in enumerate(areas):
+        if area == s:
+            connect(i, i+1)
+            connect(i, endpoint0_index + 1)
+        elif area == branch:
+            connect(i, i+1)
+            connect(i, endpoint1_index + 1)
+        elif area in endpoints:
+            pass
+        else:
+            connect(i, i+1)
+
     for _ in areas:
-        areas_visitied.append(False)
+        areas_visited.append(False)
+
+    print_connections(connections)
+
+def main():
+    print("You wake up in a dark forest.")
+    current = 0
+    direction = "forward"
+    while current is not None and 0 <= current < len(areas):
+        current, direction = area(current, direction)
+
+def area(num, dir = "forward"):
+    areas_visited[num] = True
+
+    while True:
+        global merchant_found
+        direction, index = areas[num]["func"]()
+        if areas[num]["name"] != "Traveling Merchant" or merchant_found == True:
+            press_enter_to_continue()
+
+        if direction == dir:
+            return connections[num]["forward"][index], "forward"
+        else:
+            if index < len(connections[num]["back"]):
+                return connections[num]["back"][index], "back"
+            else:
+                return connections[num]["forward"][index], "forward"
+
+def forward(option = 0):
+    return "forward", option
+def back(option = 0):
+    return "back", option
 
 def start():
     while True:
@@ -34,24 +105,12 @@ def start():
         print("1. Take the left path.")
         print("2. Take the right path.")
         choice = input("Which path do you choose? (1 or 2): ")
-        press_enter_to_continue()
         if choice == "1":
-            area(0)
+            return forward(0)
         elif choice == "2":
-            area(cave_num + 1)
+            return forward(1)
         else: 
             print("Not a valid choice. Try again.")
-
-def area(num):
-    back = False
-    areas_visitied[num] = True
-    while True:
-        forward = areas[num]()
-        press_enter_to_continue()
-        if forward != back:
-            back = not area(num + 1)
-        else:
-            return False
 
 def goblin_toll():
     while True:
@@ -67,11 +126,12 @@ def goblin_toll():
 
         if choice == "1" and has_gold(5):
             give_gold(5)
-            print("You give up all your gold. The goblins let you pass.")
+            print("You give them 5 gold. The goblins let you pass.")
             print("You continue down the path.")
-            return True
+            return forward()
         elif choice == "2":
-            fight("Goblin")
+            if not fight("Goblin"):
+                return run_away()
             print("\nThe goblins are shocked at what just took place.")
             if random.random() < 0.5:
                 print("The shock turns to anger that you killed their chief. You have to run away to not be swarmed by the goblins.")
@@ -83,10 +143,10 @@ def goblin_toll():
                 print("[You got a potion.]")
                 get_item("Potion")
             print("You continue down the path.")
-            return True
+            return forward()
 
         elif choice == "3":
-            return False
+            return back()
         else: 
             print("Not a valid choice. Try again.")
 
@@ -104,22 +164,27 @@ def bandits():
             give_gold(-1)
             print("You give up all your gold. The bandits leave.")
             print("You continue down the path.")
-            return True
+            return forward()
         elif choice == "2":
-            fight("Bandit")
-            fight("Bandit")
+            if not fight("Bandit"):
+                return run_away()
+            if not fight("Bandit"):
+                return run_away()
             print("\nYou loot the bodies, and find a potion and a dagger.")
             print("[You got a potion.]")
             print("[You equipped the dagger. (+2 Attack)]")
             get_item("Potion")
             attack_up(2)
             print("You continue down the path.")
-            return True
+            return forward()
         else: 
             print("Not a valid choice. Try again.")
 
 def traveling_merchant():
+    global merchant_found
+    merchant_found = False
     if random.randint(1, 100) <= 25:
+        merchant_found = True
         while True:
             print("\nYou spot a traveling merchant on the side of the path.")
             print("They say they have helpful goods to sell.")
@@ -135,7 +200,8 @@ def traveling_merchant():
                     print("2. Power Boost (10 gold)" + ("" if has_gold(10) else "[Not enough gold]"))
                     print("3. Dragon's Bane (30 gold)" + ("" if has_gold(30) else "[Not enough gold]"))
                     print("4. Buy nothing")
-                    choice = input("What do you buy? (1-4): ")  
+                    choice = input("What do you buy? (1-4): ") 
+                    print()
                     if choice == "1" and has_gold(5):
                         print("You buy a Potion")
                         print("[You spent 5 gold]")
@@ -156,20 +222,21 @@ def traveling_merchant():
                         get_item("Dragon's Bane")
                     elif choice == "4":
                         print("You say goodbye to the merchant, and move on.")
-                        return True
+                        return forward()
                     else:
                         if choice in ["1", "2", "3"]:
                             print("You do not have enough gold for that item.")
                         else:
                             print("Not a valid choice. Try again.")
+                    press_enter_to_continue()
                         
             elif choice == "2":
                 print("You keep going.")
-                return True
+                return forward()
             else:
                 print("Not a valid choice. Try again.")
     else:
-        return True
+        return forward()
 
 def cave():
     while True:
@@ -179,12 +246,13 @@ def cave():
         print("1. Enter the cave.")
         print("2. Turn back.")
         choice = input("What action do you take? (1-2): ")
+        print()
         if choice == "1":
             print("You step into the cave.")
             dragon()
         elif choice == "2":
             print("You go back.")
-            return False
+            return back()
         else:
             print("Not a valid choice. Try again.")
 
@@ -208,26 +276,29 @@ def dragon():
                     options += 1
                     print(f"{options}. Are you a dragon? Because you are firey hot.")
 
-                if False not in areas_visitied:
+                if False not in areas_visited:
                     options += 1
                     print(f"{options}. I'm stuck in the forest, and can't find a way out. Can you help me?")
                 
                 choice = input(f"What action do you take? (1-{options}): ")
+                print()
                 if choice == "1":
                     print("The dragon looks down at you with a stern expression.")
                     if check(15, "cha"):
                         print("But, she reluctantly slides you 30 gold.")
                         get_gold(30)
                         print("You thank the dragon and back out of the cave.")
-                        return False
+                        return back()
                     else:
                         print("She takes offense at the question and attacks.")
-                        fight("Dragon")
+                        if not fight("Dragon"):
+                            return run_away()
                         dead_dragon()
 
                 elif choice == "2":
                     print("The dragons says nothing, but prepares to squish you like bug.")
-                    fight("Dragon")
+                    if not fight("Dragon"):
+                        return run_away()
                     dead_dragon()
                 
                 elif choice == "3" and get_name() == "Bard":
@@ -240,10 +311,11 @@ def dragon():
                         victory()
                     else:
                         print(" offensive.\nShe wants to bite off you head.")
-                        fight("Dragon")
+                        if not fight("Dragon"):
+                            return run_away()
                         dead_dragon()
 
-                elif ((choice == "3" and get_name != "Bard") or choice == "4") and False not in areas_visitied:
+                elif ((choice == "3" and get_name != "Bard") or choice == "4") and False not in areas_visited:
                     print("You tell the dragon you need help getting home.")
                     print("She tells you to climb on her back and she'll fly you out.")
                     print("You fly off into the sunset. The end.")
@@ -258,20 +330,22 @@ def dragon():
             get_gold(30)
             if check(20, "dex"):
                 print("You successfully get away without waking the dragon.")
-                return False
+                return back()
             else:
                 print("...but your rumaging wakes the dragon, and she attacks.")
-                fight("Dragon")
+                if not fight("Dragon"):
+                    return run_away()
                 dead_dragon()
 
         if choice == "3":
             print("You charge in to attack the dragon. It hears you and wakes up for the fight.")
-            fight("Dragon")
+            if not fight("Dragon"):
+                return run_away()
             dead_dragon()
 
         elif choice == "4":
             print("You go back.")
-            return False
+            return back()
         else:
             print("Not a valid choice. Try again.")
 
@@ -292,12 +366,33 @@ def oasis():
             print("You sit down to rest for a bit. The cool water is very refreshing.")
             rest()
             print("After you finish resting, you get up and go back up the path.")
-            return False
+            return back()
         elif choice == "2":
             print("You turn back the way you came.")
-            return False
+            return back()
         else: 
             print("Not a valid choice. Try again.")
+
+def dead_end():
+    print("\nYou reach a dead end and must turn back.")
+    return back()
+
+def fork():
+    global side_path
+    print("\nYou come to a fork in the road.")
+    print("1. Continue Straight")
+    print(f"2. {'Take' if not side_path else 'Return to'} the side path.")
+    print("3. Go Back")
+    choice = input("> ")
+    if choice == "1":
+        side_path = False
+        return forward(0)
+    if choice == "2":
+        side_path = True
+        return forward(1)
+    if choice == "3":
+        side_path = False
+        return back()
 
 def get_name():
     return game.player.name
@@ -322,13 +417,24 @@ def get_item(item: str):
 
 def fight(e):
     game.battle_prep(e)
-    game.make_buttons()
-    game.run()
+    while alive() and enemy_alive() and not game.ran_away:
+        game.make_buttons()
+        game.run()
+        if game.ran_away:
+            return False
     if not alive():
         death()
+    return True
 
 def alive():
     return game.player.hp > 0
+
+def enemy_alive():
+    return game.enemy.hp > 0
+
+def run_away():
+    print("You somehow manage to escape back the way you came.")
+    return back()
 
 def attack_up(val: int):
     game.player.attack += val
