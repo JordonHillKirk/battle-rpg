@@ -41,9 +41,9 @@ def init_environmentals():
 
 def print_connections(connections):
     with open(advanced_rpg.getCurrentDirectory() + "map.txt", "w") as f:
-        for area in areas:
-            f.write(str(area) + "\n")
-        f.write("\n")
+        # for area in areas:
+        #     f.write(str(area) + "\n")
+        # f.write("\n")
         for area in list(connections.keys()):
             f.write(f"area {area}: {str(areas[area]["name"])}\n")
             f.write(f"forward: {str(connections[area]['forward'])}\n")
