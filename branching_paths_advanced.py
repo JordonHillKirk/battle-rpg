@@ -521,6 +521,7 @@ def get_item(item: str):
     game.player.inventory.append(item)
 
 def fight(e):
+    print("\n[Open battle window]")
     game.battle_prep(e)
     while alive() and enemy_alive() and not game.ran_away:
         game.make_buttons()
