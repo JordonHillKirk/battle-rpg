@@ -10,7 +10,7 @@ This program, works best on Windows. Other opperating systems may not be support
 To start, make sure you have Python installed. Python version 3.12.10 was used for development, but I don't think that specific version is required for use.
 Download the source code by clicking on the green Code button and download as a zip file. Extract the zip file where you want it.
 In command prompt (or terminal), navigate to the location you unzipped the python files, and run the following command:
-  pip install pygame pywin32
+  pip install requirements.txt
 followed by this command:
   python [file name you want to run]
 so if you wanted to run branching_paths_advanced.py it would look like this:
