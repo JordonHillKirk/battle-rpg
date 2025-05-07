@@ -11,8 +11,8 @@ To start, make sure you have Python installed. Python version 3.12.10 was used f
 Download the source code by clicking on the green Code button and download as a zip file. Extract the zip file where you want it.
 
 In command prompt (or terminal), navigate to the location you unzipped the python files, and run the following command:  
-  pip install requirements.txt  
+  `pip install requirements.txt`  
 followed by this command:  
-  python [file name you want to run]  
+  `python [file name you want to run]`  
 so if you wanted to run branching_paths_advanced.py it would look like this:  
-  python branching_paths_advanced.py
+  `python branching_paths_advanced.py`
