@@ -12,6 +12,8 @@ normal_areas = [
 random_encounters = [
     {"name": "Traveling Merchant", "func": lambda: traveling_merchant(), "target": 25},
     {"name": "Traveling Merchant", "func": lambda: traveling_merchant(), "target": 25},
+    {"name": "Traveling Merchant", "func": lambda: traveling_merchant2(), "target": 25},
+    {"name": "Traveling Merchant", "func": lambda: traveling_merchant2(), "target": 25},
     {"name": "Actual Fork", "func": lambda: actual_fork(), "target": 10},
 ]
 branching_areas = [
@@ -41,9 +43,6 @@ def init_environmentals():
 
 def print_connections(connections):
     with open(advanced_rpg.getCurrentDirectory() + "map.txt", "w") as f:
-        # for area in areas:
-        #     f.write(str(area) + "\n")
-        # f.write("\n")
         for area in list(connections.keys()):
             f.write(f"area {area}: {str(areas[area]["name"])}\n")
             f.write(f"forward: {str(connections[area]['forward'])}\n")
@@ -59,7 +58,6 @@ def randomize_areas():
 
     def find_area_index(a):
         return next(idx for idx, area in enumerate(areas) if area == a)
-
 
     areas.extend(normal_areas)
     areas.extend(random_encounters)
@@ -263,9 +261,12 @@ def traveling_merchant():
                 print("The following items are available for purchase: ")
                 print("1. Potion (5 gold)" + ("" if has_gold(5) else "[Not enough gold]"))
                 print("2. Power Boost (10 gold)" + ("" if has_gold(10) else "[Not enough gold]"))
-                print("3. Dragon's Bane (30 gold)" + ("" if has_gold(30) else "[Not enough gold]"))
-                print("4. Buy nothing")
-                choice = input("What do you buy? (1-4): ") 
+                options = 3
+                if "Dragon's Bane" not in game.player.inventory:
+                    print(str(options) + ". Dragon's Bane (30 gold)" + ("" if has_gold(30) else "[Not enough gold]"))
+                    options += 1
+                print(f"{options}. Buy nothing")
+                choice = input(f"What do you buy? (1-{options}): ") 
                 print()
                 if choice == "1" and has_gold(5):
                     print("You buy a Potion")
@@ -279,13 +280,69 @@ def traveling_merchant():
                     print("[You gained a Power Boost]")
                     give_gold(10)
                     get_item("Power Boost")
-                elif choice == "3" and has_gold(30):
+                elif choice == "3" and has_gold(30) and "Dragon's Bane" not in game.player.inventory:
                     print("You buy a Dragon's Bane")
                     print("[You spent 30 gold]")
                     print("[You gained a Dragon's Bane]")
                     give_gold(30)
                     get_item("Dragon's Bane")
-                elif choice == "4":
+                elif choice == "4" or (choice == "3" and "Dragon's Bane" in game.player.inventory):
+                    print("You say goodbye to the merchant, and move on.")
+                    return forward()
+                else:
+                    if choice in ["1", "2", "3"]:
+                        print("You do not have enough gold for that item.")
+                    else:
+                        print("Not a valid choice. Try again.")
+                press_enter_to_continue()   
+        elif choice == "2":
+            print("You keep going.")
+            return forward()
+        else:
+            print("Not a valid choice. Try again.")
+
+def traveling_merchant2():
+    global merchant_found
+    merchant_found = True
+    while True:
+        print("\nYou spot a traveling merchant on the side of the path.")
+        print("They say they have helpful goods to sell.")
+        print("Do you stop to browse their wares?")
+        print("1. Yes, stop to browse.")
+        print("2. No, keep moving on.")
+        choice = input("What action do you take? (1-2): ")
+        if choice == "1":
+            while True:
+                print(f"\nYou have {print_gold()} gold.")
+                print("The following items are available for purchase: ")
+                print("1. Mana Potion (5 gold)" + ("" if has_gold(5) else "[Not enough gold]"))
+                print("2. Magic Boost (10 gold)" + ("" if has_gold(10) else "[Not enough gold]"))
+                options = 3
+                if "Dragon's Bane" not in game.player.inventory:
+                    print(str(options) + ". Dragon's Bane (30 gold)" + ("" if has_gold(30) else "[Not enough gold]"))
+                    options += 1
+                print(f"{options}. Buy nothing")
+                choice = input(f"What do you buy? (1-{options}): ") 
+                print()
+                if choice == "1" and has_gold(5):
+                    print("You buy a Potion")
+                    print("[You spent 5 gold]")
+                    print("[You gained a Potion]")
+                    give_gold(5)
+                    get_item("Potion") 
+                elif choice == "2" and has_gold(10):
+                    print("You buy a Power Boost")
+                    print("[You spent 10 gold]")
+                    print("[You gained a Power Boost]")
+                    give_gold(10)
+                    get_item("Power Boost")
+                elif choice == "3" and has_gold(30) and "Dragon's Bane" not in game.player.inventory:
+                    print("You buy a Dragon's Bane")
+                    print("[You spent 30 gold]")
+                    print("[You gained a Dragon's Bane]")
+                    give_gold(30)
+                    get_item("Dragon's Bane")
+                elif choice == "4" or (choice == "3" and "Dragon's Bane" in game.player.inventory):
                     print("You say goodbye to the merchant, and move on.")
                     return forward()
                 else:
@@ -332,7 +389,6 @@ def dragon():
         choice = input("What action do you take? (1-3): ")
         if choice == "1":
             while True:
-                choices = 3
                 print("\nYou boop the dragon on its snout. It stirs and lifts its head.")
                 print("\"Why have you come about?\" she asks. \"Do you wish that you were dead?")
                 print("1. I want some treasure. Can I have some?")
@@ -362,7 +418,7 @@ def dragon():
                         dead_dragon()
 
                 elif choice == "2":
-                    print("The dragons says nothing, but prepares to squish you like bug.")
+                    print("The dragon says nothing, but prepares to squish you like bug.")
                     if not fight("Dragon"):
                         return run_away()
                     dead_dragon()
@@ -419,8 +475,37 @@ def dead_dragon():
     print("\nYou slay the dragon.")
     print("You pick up as much gold as you can carry.")
     get_gold(1000)
-    print("You also find a magic broom.\nYou hop on and fly off into the sunset. The end.")
+    print("You also find a magic broom.")
+    if random.randint(1, 100) <= 10:
+        print("You are about to fly out of here, but suddenly an Elder Dragon descends into the cave.")
+        elder_dragon()
+    else:
+        print("You hop on the broom and fly off into the sunset. The end.")
     victory()
+
+def elder_dragon():
+    while True:
+        print("The Elder Dragon sees his dead child and is not happy about it.")
+        print("1. Try to convince the Elder Dragon not to kill you")
+        print("2. Attack the Elder Dragon")
+        choice = input("What action do you take? (1-2): ")
+        if choice == "1":
+            
+        elif choice == "2":
+            while True:
+                if not fight("Elder Dragon"):
+                    while alive() and enemy_alive():
+                        print("\nYou get away momentarily, but the Elder Dragon blocks the only exit and is too big to get around.")
+                        print("You have to fight it.")
+                        press_enter_to_continue()
+                        game.last_player_action = ""
+                        game.run()
+                    if not alive():
+                        death()
+                print("Finally the Elder Dragon falls, giving you the freedom you have rightfully earned.")
+                return True
+        else:
+            print("Not a valid choice. Try again.")
 
 def oasis():
     while True:
@@ -520,9 +605,10 @@ def print_gold():
 def get_item(item: str):
     game.player.inventory.append(item)
 
-def fight(e):
+def fight(e, new_fight = True):
     print("\n[Open battle window]")
-    game.battle_prep(e)
+    if new_fight:
+        game.battle_prep(e)
     while alive() and enemy_alive() and not game.ran_away:
         game.make_buttons()
         game.run()

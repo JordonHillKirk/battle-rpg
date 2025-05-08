@@ -51,13 +51,17 @@ def damage_variance(damage):
     return random.randint(max(0, damage - 3), max(0, damage + 3))
 
 class Button:
-    def __init__(self, rect, text, callback):
+    def __init__(self, rect, text, callback, hover_text=None):
         self.rect = pygame.Rect(rect)
         self.text = text
         self.callback = callback
+        self.hover_text = hover_text
+        self.hovered = False
 
     def draw(self, surface):
         button_color = (50, 50, 150)
+        if self.hovered:
+            button_color = (100, 100, 200)  # Highlight if hovered
         if self.text == "Special" or self.text in specials:
             button_color = (50, 150, 150)
         pygame.draw.rect(surface, button_color, self.rect)
@@ -68,6 +72,10 @@ class Button:
     def handle_event(self, event):
         if event.type == pygame.MOUSEBUTTONDOWN and self.rect.collidepoint(event.pos):
             self.callback()
+    
+    def check_hover(self, mouse_pos):
+        self.hovered = self.rect.collidepoint(mouse_pos)
+
 
 class Entity:
     def __init__(self, name, hp, attack, defense):
@@ -122,6 +130,7 @@ class Enemy(Entity):
 
 class BattleGame:
     def __init__(self):
+        self.player = None
         self.characters = {
             "Hero": 1,
             "Wizard": 2,
@@ -138,6 +147,7 @@ class BattleGame:
             Enemy("Goblin", 50, 10, 2),
             Enemy("Orc", 80, 12, 4),
             Enemy("Dragon", 150, 20, 8, {"Fire Breath": 25}),
+            Enemy("Elder Dragon", 300, 25, 10, {"Fire Breath": 30}),
             bandit
         ]
 
@@ -146,15 +156,17 @@ class BattleGame:
             "Heavy Slash": lambda atk: atk * 2 - 3
         }
         self.spells = {
-            "Fireball": {"mp": 10, "damage": lambda magic: max(0, magic) + 5},
-            "Ice Spike": {"mp": 8, "damage": lambda magic: max(0, magic - 5)},
-            "Lambda": {"mp": 5, "effect": "summon_sheep"},
-            "Magic Up": {"mp": 20, "boost": 15}
+            "Fireball": {"mp": 10, "damage": lambda magic: max(1, magic + 5), "hover": "Damage"},
+            "Ice Spike": {"mp": 8, "damage": lambda magic: max(1, magic - 5), "hover": "Damage"},
+            "Lambda": {"mp": 5, "effect": "summon_sheep", "hover": "Summon a sheep to defend you"},
+            "Magic Up": {"mp": 20, "magic boost": 10, "hover": "+10 Magic"}
         }
         self.items = {
-            "Potion": {"heal": 20},
-            "Power Boost": {"boost": 5},
-            "Dragon's Bane": {"kill dragon": True}
+            "Potion": {"heal": 30, "hover": "+30 HP"},
+            "Mana Potion": {"recover mana": 20, "hover": "+20 MP"},
+            "Power Boost": {"attack boost": 5, "hover": "+5 Attack"},
+            "Magic Boost": {"magic boost": 10, "hover": "+10 Magic"},
+            "Dragon's Bane": {"kill dragon": True, "hover": "Kills a dragon"}
         }
         self.battle_prep()
 
@@ -204,11 +216,16 @@ class BattleGame:
         
 
     def handle_events(self):
+        mouse_pos = pygame.mouse.get_pos()  # <-- NEW
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 self.running = False
             for button in self.buttons:
                 button.handle_event(event)
+        
+        # Check for hover separately
+        for button in self.buttons:
+            button.check_hover(mouse_pos)
 
     def make_character_select_buttons(self):
         self.buttons.clear()
@@ -230,43 +247,55 @@ class BattleGame:
         if self.menu == "main":
             options = []
             if self.player.hp <= self.player.max_hp / 2 and not self.special_used:
-                options.append(("Special", lambda: self.set_menu("special")))
-            options.append(("Attack", lambda: self.set_menu("attack")))
-            options.append(("Items", lambda: self.set_menu("items")))
-            options.append(("Spells", lambda: self.set_menu("spells")))
-            options.append(("Run", self.try_escape))
+                options.append(("Special", lambda: self.set_menu("special"), None))
+            options.append(("Attack", lambda: self.set_menu("attack"), None))
+            options.append(("Items", lambda: self.set_menu("items"), None))
+            options.append(("Spells", lambda: self.set_menu("spells"), None))
+            options.append(("Run", self.try_escape, None))
 
         elif self.menu == "attack":
             options = []
             for move in self.moves.keys():
-                options.append((move, lambda m=move: self.select_move(m)))
-            options.append(("Back", self.go_back))
+                base_damage = self.moves[move](self.player.attack - self.enemy.defense)
+                min_damage = max(0, base_damage - 3)
+                max_damage = max(0, base_damage + 3)
+                hover = f"Damage: {min_damage}-{max_damage}"
+                options.append((move, lambda m=move: self.select_move(m), hover))
+            options.append(("Back", self.go_back, None))
             
         elif self.menu == "spells":
             options = []
             for spell in self.spells.keys():
                 spell_mp = self.spells[spell]["mp"]
+                hover = None
+                if "damage" in self.spells[spell]:
+                    base_damage = self.spells[spell]["damage"](self.player.magic - self.enemy.defense)
+                    min_damage = max(0, base_damage - 3)
+                    max_damage = max(0, base_damage + 3)
+                    hover = f"Damage: {min_damage}-{max_damage}"
+                else:
+                    hover = self.spells[spell]["hover"]
                 if self.player.mp >= spell_mp:
-                    options.append((f"{spell} ({spell_mp} MP)", lambda s=spell: self.cast_spell(s)))
-            options.append(("Back", self.go_back))
+                    options.append((f"{spell} ({spell_mp} MP)", lambda s=spell: self.cast_spell(s), hover))
+            options.append(("Back", self.go_back, None))
             
         elif self.menu == "items":
             items = list(set(self.player.inventory))
-            options = [(f"{item} x{self.player.inventory.count(item)}", lambda i=item: self.use_item(i)) for item in items]
-            options.append(("Back", self.go_back))
+            options = [(f"{item} x{self.player.inventory.count(item)}", lambda i=item: self.use_item(i), self.items[item]["hover"]) for item in items]
+            options.append(("Back", self.go_back, None))
 
         elif self.menu == "special":
             options = [
-                (self.player.special, self.set_special),
-                ("Back", self.go_back)
+                (self.player.special, self.set_special, None),
+                ("Back", self.go_back, None)
             ]
         
         else:
             return
 
-        for i, (text, callback) in enumerate(options):
+        for i, (text, callback, hover) in enumerate(options):
             width = max(200, font.size(text)[0] + 20)
-            self.buttons.append(Button((50, y_offset + i * spacing, width, 30), text, callback))
+            self.buttons.append(Button((50, y_offset + i * spacing, width, 30), text, callback, hover))
 
     def set_menu(self, menu):
         self.menu = menu
@@ -317,20 +346,29 @@ class BattleGame:
     def use_item(self, item_name):
         if item_name in self.player.inventory:
             self.player.inventory.remove(item_name)
-            if item_name == "Potion":
+            if "heal" in self.items[item_name]:
                 heal = self.items[item_name]["heal"]
+                healed = min(self.player.max_hp, self.player.hp + heal) - self.player.hp
                 self.player.hp = min(self.player.max_hp, self.player.hp + heal)
-                self.last_player_action = f"You used a Potion! Restored {heal} HP."
-            elif item_name == "Power Boost":
-                self.player.attack += self.items[item_name]["boost"]
-                self.last_player_action = "You used a Power Boost! Attack increased."
+                self.last_player_action = f"You used {'a' if item_name[0] not in ['a','e','i','o','u'] else 'an'} {item_name}! Restored {healed} HP."
+            elif "recover mana" in self.items[item_name]:
+                recover = self.items[item_name]["recover mana"]
+                recovered = min(self.player.max_mp, self.player.mp + recover) - self.player.mp
+                self.player.mp = min(self.player.max_mp, self.player.mp + recover)
+                self.last_player_action = f"You used {'a' if item_name[0] not in ['a','e','i','o','u'] else 'an'} {item_name}! Recovered {recovered} MP."
+            elif "attack boost" in self.items[item_name]:
+                self.player.attack += self.items[item_name]["attack boost"]
+                self.last_player_action = f"You used {'a' if item_name[0] not in ['a','e','i','o','u'] else 'an'} {item_name}! Attack increased."
+            elif "magic boost" in self.items[item_name]:
+                self.player.magic += self.items[item_name]["magic boost"]
+                self.last_player_action = f"You used {'a' if item_name[0] not in ['a','e','i','o','u'] else 'an'} {item_name}! Magic increased."
             elif item_name == "Dragon's Bane":
-                if self.enemy.name == "Dragon":
+                if "Dragon" in self.enemy.name:
                     self.enemy.hp = 0
                     self.last_player_action = "You used the Dragon's Bane!"
                     self.last_enemy_action = "The Dragon falls dead."
                 else:
-                    self.last_player_action = "You used the Dragon's Bane...but it does nothing."
+                    self.last_player_action = "You used the Dragon's Bane...but it did nothing."
 
             self.turn = "enemy"
             self.make_buttons()
@@ -341,6 +379,7 @@ class BattleGame:
         else:
             draw_status(screen, self.player, 50, 50)
             draw_status(screen, self.enemy, 500, 50) 
+
             y = 140
             if self.sleep_duration:
                 draw_text(screen, "Asleep", 500, y, (200, 50, 50))
@@ -355,8 +394,18 @@ class BattleGame:
                 draw_text(screen, self.last_enemy_action, 300, 490)
             if self.victory_text:
                 draw_text(screen, self.victory_text, 300, 520)
+
         for button in self.buttons:
             button.draw(screen)
+            
+        # Draw hover popup if hovering
+        for button in self.buttons:
+            if button.hovered and button.hover_text:
+                popup_font = pygame.font.SysFont("arial", 18)
+                popup_surface = popup_font.render(button.hover_text, True, (255, 255, 0))
+                popup_rect = popup_surface.get_rect()
+                popup_rect.topleft = (button.rect.right + 10, button.rect.top)
+                screen.blit(popup_surface, popup_rect)
 
     def logic(self):
         if self.in_character_select:
@@ -385,9 +434,9 @@ class BattleGame:
                         self.sleep_duration = 0
                         self.last_enemy_action = "The enemy has awoken."
                     self.last_player_action = f"You cast {self.selected_move} for {damage} damage!"
-                elif "boost" in spell:
-                    self.player.magic += spell["boost"]
-                    self.last_player_action = f"You cast {self.selected_move} boosting Magic by {spell["boost"]}."
+                elif "magic boost" in spell:
+                    self.player.magic += spell["magic boost"]
+                    self.last_player_action = f"You cast {self.selected_move} boosting Magic by {spell["magic boost"]}."
                 elif spell.get("effect") == "summon_sheep":
                     self.sheep_block_active = True
                     self.sheep_block_duration = random.randint(1, 2)
@@ -398,16 +447,16 @@ class BattleGame:
                     self.player.attack += 5
                     self.player.defense += 5
                     self.last_enemy_action = "Your Attack and Defense increase by 5."
-                if self.selected_move == "Rage":
+                elif self.selected_move == "Rage":
                     self.last_enemy_action = "You now take half damage."
-                if self.selected_move == "Sheepda":
+                elif self.selected_move == "Sheepda":
                     self.sheep_block_active = True
                     self.sheep_block_duration = 3
                     self.last_enemy_action = "You summon a flock of sheep that goes away in 3 turns."
-                if self.selected_move == "ArmorUp":
+                elif self.selected_move == "ArmorUp":
                     self.player.hp += self.player.max_hp
                     self.last_enemy_action = "You fortify your armor."
-                if self.selected_move == "Sleep":
+                elif self.selected_move == "Sleep":
                     self.last_enemy_action = "The enemy has fallen asleep."
                     self.sleep_duration = 3
                 self.action = None
@@ -447,11 +496,11 @@ class BattleGame:
             self.last_enemy_action = f"{self.enemy.name} used a Potion! Restored {heal} HP."
         else:
             move = random.choice(["Bite", "Scratch"])
-            if self.enemy.name == "Dragon":
+            if "Dragon" in self.enemy.name:
                 move = random.choice(["Bite", "Fire Breath"])
             power = self.enemy.attack + 2 if move == "Bite" else self.enemy.attack - 2
             if move == "Fire Breath":
-                power = 25
+                power = self.enemy.special_moves["Fire Breath"]
 
             if self.sheep_block_active:
                 self.last_enemy_action = f"{self.enemy.name}'s attack was blocked by the sheep!"
@@ -471,8 +520,8 @@ class BattleGame:
                 self.player.take_damage(damage)
                 self.last_enemy_action = f"{self.enemy.name} used {move}! You took {damage} damage!"
 
-        if self.enemy.name == "Dragon" and self.sheep_eaten_count >= 20:
-            self.victory_text = "The Dragon gets full from eating sheep and flies away!"
+        if "Dragon" in self.enemy.name and self.sheep_eaten_count >= 20:
+            self.victory_text = f"The {self.enemy.name} gets full from eating sheep and flies away!"
             self.buttons = [Button((300, 580, 200, 30), "Quit", self.quit_game)]
 
         if self.special_active:
@@ -493,8 +542,10 @@ class BattleGame:
 
 if __name__ == "__main__":
     game = BattleGame()
-    game.select_enemy("Dragon")
+    game.select_enemy("Elder Dragon")
     game.run()
+    game.run()
+    game.last_player_action = ""
     game.run()
     pygame.quit()
     sys.exit()
