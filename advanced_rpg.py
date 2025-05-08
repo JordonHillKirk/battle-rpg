@@ -143,7 +143,7 @@ class BattleGame:
         self.in_character_select = True
 
         bandit = Enemy("Bandit", 60, 14, 3)
-        bandit.inventory = ["Potion"]
+        bandit.inventory = ["Potion", "Potion", "Potion", "Potion", "Potion"]
         self.enemies = [
             Enemy("Goblin", 50, 10, 2),
             Enemy("Orc", 80, 12, 4),
@@ -491,7 +491,7 @@ class BattleGame:
             if self.sleep_duration == 0:
                 self.last_enemy_action == "The enemy has awoken."
         elif self.enemy.name == "Bandit" and self.enemy.hp < 20 and "Potion" in self.enemy.inventory:
-            # self.enemy.inventory.remove("Potion")
+            self.enemy.inventory.remove("Potion")
             heal = 30
             self.enemy.hp = min(self.enemy.max_hp, self.enemy.hp + heal)
             self.last_enemy_action = f"{self.enemy.name} used a Potion! Restored {heal} HP."
@@ -543,7 +543,7 @@ class BattleGame:
 
 if __name__ == "__main__":
     game = BattleGame()
-    game.select_enemy("Elder Dragon")
+    game.select_enemy("Bandit")
     game.run()
     game.run()
     pygame.quit()
