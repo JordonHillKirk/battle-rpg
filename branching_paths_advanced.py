@@ -511,7 +511,7 @@ def dead_dragon():
     print("You pick up as much gold as you can carry.")
     get_gold(1000)
     print("You also find a magic broom.")
-    if random.randint(1, 100) <= 100:
+    if random.randint(1, 100) <= 10:
         print("You are about to fly out of here, but suddenly an Elder Dragon descends into the cave.")
         elder_dragon()
     else:
