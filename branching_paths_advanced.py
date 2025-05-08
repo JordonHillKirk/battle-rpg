@@ -1,3 +1,4 @@
+import time
 import advanced_rpg
 import random
 import pygame
@@ -12,8 +13,8 @@ normal_areas = [
 random_encounters = [
     {"name": "Traveling Merchant", "func": lambda: traveling_merchant(), "target": 25},
     {"name": "Traveling Merchant", "func": lambda: traveling_merchant(), "target": 25},
-    {"name": "Traveling Merchant", "func": lambda: traveling_merchant2(), "target": 25},
-    {"name": "Traveling Merchant", "func": lambda: traveling_merchant2(), "target": 25},
+    {"name": "Traveling Merchant2", "func": lambda: traveling_merchant2(), "target": 25},
+    {"name": "Traveling Merchant2", "func": lambda: traveling_merchant2(), "target": 25},
     {"name": "Actual Fork", "func": lambda: actual_fork(), "target": 10},
 ]
 branching_areas = [
@@ -21,7 +22,7 @@ branching_areas = [
     # {"name": "Fork2", "func": lambda: fork()},
 ]
 endpoints = [
-    {"name": "Cave", "func": lambda: cave()},
+    {"name": "Cave", "func": lambda same_entries=False: cave(same_entries)},
     {"name": "Oasis", "func": lambda: oasis()},
     # {"name": "Dead End", "func": lambda: dead_end()}
 ]
@@ -109,7 +110,7 @@ def randomize_areas():
     print_connections(connections)
 
 def main():
-    print("You wake up in a dark forest.")
+    print("\nYou wake up in a dark forest.")
     current = 0
     direction = "forward"
     last_area = 0
@@ -122,47 +123,80 @@ def area(num, dir, last_area):
     global merchant_found, side_path, fork_encountered
     areas_visited[num] = True
 
-    i = None
+    index = None
     direction = None
     area = areas[num]
     
-    if area["name"] == "Fork" and last_area != connections[num]["forward"][1]:
-        side_path = False
+    if area in branching_areas:
+        if connections[num]["forward"][0] == connections[num]["forward"][1]:
+            return skip(num, dir)
+        else:
+            if last_area == connections[num]["forward"][1]:
+                side_path = True
+            else:
+                side_path = False
 
     if area in random_encounters:
         if random.randint(1, 100) > area["target"]:
-            direction = "forward"
-            i = 0
-            d = "forward" if direction == dir else "back"
-            return connections[num][d][i], d, num
+            return skip(num, dir)
+        
+    same_entries = False
+    if len(connections[num]["back"]) > 1 and connections[num]["back"][0] == connections[num]["back"][1]:
+        same_entries = True
     
-    direction, i = area["func"]()
+    if same_entries:
+        direction, index = area["func"](same_entries)
+    else:
+        direction, index = area["func"]()
+
     if area not in random_encounters:
         press_enter_to_continue()
-    elif area["name"] == "Traveling Merchant" and merchant_found:
+    elif "Traveling Merchant" in area["name"] and merchant_found:
         merchant_found = False
         press_enter_to_continue()
-    elif area["name"] == "Actual Fork" and fork_encountered:
+    elif "Actual Fork" in area["name"] and fork_encountered:
         fork_encountered = False
         press_enter_to_continue()
     
-    d = "forward" if direction == dir else "back"
-
-    if i == -1:
-        return last_area, d, num
-    elif i == -2:
-        i = connections[num][d][0]
-        if i == last_area:
-            i = connections[num][d][1]
-        return i, d, num
+    if side_path:
+        d = "back" if direction == "back" else "forward"
     else:
-        return connections[num][d][i], d, num
+        d = "forward" if direction == dir else "back"
+
+    try:
+        if index == -1:
+            return last_area, d, num
+        elif index == -2:
+            index = connections[num][d][0]
+            if index == last_area:
+                index = connections[num][d][1]
+            return index, d, num
+        else:
+            return connections[num][d][index], d, num
+    except:
+        print("\nError: failed to route properly.")
+        print("num =", num)
+        print("last_area =", last_area)
+        print("dir =", dir)
+        print("direction =", direction)
+        print("d =", d)
+        print("index =", index)
+        print("side_path =", side_path)
+        print("merchant_found =", merchant_found)
+        print("fork_encountered =", fork_encountered)
+        exit()
     
 def forward(option = 0):
     return "forward", option
 
 def back(option = 0):
     return "back", option
+
+def skip(num, dir):
+    direction = "forward"
+    index = 0
+    d = "forward" if direction == dir else "back"
+    return connections[num][d][index], d, num
 
 def start():
     while True:
@@ -357,14 +391,15 @@ def traveling_merchant2():
         else:
             print("Not a valid choice. Try again.")
 
-def cave():
+def cave(same_entries = False):
     while True:
         print("\nYou find a cave entrance.")
         print("The smell of smoke emanates from within.")
         print("Do you enter, turn back, or try the other path?")
         print("1. Enter the cave")
         print("2. Turn back")
-        print("3. Other path")
+        if not same_entries:
+            print("3. Other path")
         choice = input("What action do you take? (1-3): ")
         print()
         if choice == "1":
@@ -373,7 +408,7 @@ def cave():
         elif choice == "2":
             print("You go back.")
             return back(-1)
-        elif choice == "3":
+        elif choice == "3" and not same_entries:
             print("You go up the other path.")
             return back(-2)
         else:
@@ -476,7 +511,7 @@ def dead_dragon():
     print("You pick up as much gold as you can carry.")
     get_gold(1000)
     print("You also find a magic broom.")
-    if random.randint(1, 100) <= 10:
+    if random.randint(1, 100) <= 100:
         print("You are about to fly out of here, but suddenly an Elder Dragon descends into the cave.")
         elder_dragon()
     else:
@@ -486,26 +521,57 @@ def dead_dragon():
 def elder_dragon():
     while True:
         print("The Elder Dragon sees his dead child and is not happy about it.")
-        print("1. Try to convince the Elder Dragon not to kill you")
-        print("2. Attack the Elder Dragon")
+        print("1. Try to convince the Elder Dragon not to kill you.")
+        print("2. Beg for your life.")
+        print("3. Attack the Elder Dragon.")
         choice = input("What action do you take? (1-2): ")
         if choice == "1":
-            
+            print("\nYou try to come up with some excuse for your situation...")
+            time.sleep(2)
+            print("...but nothing comes to mind.")
+            print("The dragon attacks.")
+            fight_elder_dragon()
         elif choice == "2":
-            while True:
-                if not fight("Elder Dragon"):
-                    while alive() and enemy_alive():
-                        print("\nYou get away momentarily, but the Elder Dragon blocks the only exit and is too big to get around.")
-                        print("You have to fight it.")
-                        press_enter_to_continue()
-                        game.last_player_action = ""
-                        game.run()
-                    if not alive():
-                        death()
-                print("Finally the Elder Dragon falls, giving you the freedom you have rightfully earned.")
+            print("\nYou pleed with the Elder Dragon to let you go.")
+            if check(25, "cha"):
+                print("The Elder Dragon takes compasion on you and lets you leave on the broom,\nbut the rest of the treasure must be left behind.")
+                give_gold(-1)
                 return True
+            else:
+                print("The Elder Dragon is ammused by your words, but is still goes to kill you.")
+                fight_elder_dragon()
+                return True
+        elif choice == "3":
+            fight_elder_dragon()
+            return True
         else:
             print("Not a valid choice. Try again.")
+
+def fight_elder_dragon():
+    if not fight("Elder Dragon"):
+        while alive() and enemy_alive():
+            print("\nYou get away momentarily, but the Elder Dragon blocks the only exit and is too big to get around.")
+            print("You have to fight it.")
+            press_enter_to_continue()
+            fight("Elder Dragon", False)
+    print("\nFinally the Elder Dragon falls, giving you the freedom you have rightfully earned.")
+    print("You are about to leave, when you notice a small bag on the ground next to the Elder Dragon.")
+    print("Upon inspection, you recognize this to be a bag of holding, which greatly increases your carrying capacity.")
+    while True:
+        print("Do you stop to load up on more gold?")
+        print("1. Yes, more gold, please.")
+        print("2. No, get me out of here before another dragon shows up.")
+        choice = input("What action do you take? (1-2): ")
+        if choice == "1":
+            print("You stop for a moment and fill the bag with gold to capacity.")
+            get_gold(10000)
+            break
+        if choice == "2":
+            print("It's probably for the best.")
+            break
+        else:
+            print("Not a valid choice. Try again.")
+    return True
 
 def oasis():
     while True:
@@ -537,24 +603,28 @@ def fork():
         else:
             print(" with a path leading off to the side.")
         print(f"1. {'Turn away from the first area' if side_path else 'Continue straight'}")
-        print(f"2. {'Take' if not side_path else 'Return to'} the side path.")
+        print(f"2. {'Return to the side path' if side_path else 'Take the side path'}")
         print(f"3. {'Turn toward the first area' if side_path else 'Go back the way you came'}")
         choice = input("Which way do you choose? (1-3): ")
         if choice == "1":
+            # Moving forward toward progression (area 8, not back toward start)
             if side_path:
-                side_path = False
-                return back(0)
-            return forward(0)
+                side_path = False  # We're no longer in side_path context
+                return back(0)  # Move forward in main path
+            else:
+                return forward(0)  # Normal forward
         elif choice == "2":
             if side_path:
-                return back(-1)
-            side_path = True
-            return forward(1)
+                return back(-1)  # Go back into side path (backtracking into Cave)
+            else:
+                side_path = True  # Mark that we're going into side path
+                return forward(1)  # Move to side path (forward[1])
         elif choice == "3":
             if side_path:
                 side_path = False
-                return forward()
-            return back()
+                return forward(0)  # Back toward start
+            else:
+                return back(0)  # Normal back
         else:
             print("Not a valid choice. Try again.")
 
@@ -609,6 +679,9 @@ def fight(e, new_fight = True):
     print("\n[Open battle window]")
     if new_fight:
         game.battle_prep(e)
+    else:
+        game.ran_away = False
+        game.last_player_action = ""
     while alive() and enemy_alive() and not game.ran_away:
         game.make_buttons()
         game.run()

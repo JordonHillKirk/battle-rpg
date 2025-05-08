@@ -47,6 +47,8 @@ spells = {
 def get_character(characters):
     print("Select a character:")
     for i, name in enumerate(characters, 1):
+        if name == "Dev":
+            continue
         print(f"{i}. {name}")
     choice = input("> ")
     return int(choice)

@@ -136,7 +136,8 @@ class BattleGame:
             "Wizard": 2,
             "Barbarian": 3,
             "Tank": 4,
-            "Bard": 5
+            "Bard": 5,
+            # "Dev": 6
         }
         self.selected_character = None
         self.in_character_select = True
@@ -544,8 +545,6 @@ if __name__ == "__main__":
     game = BattleGame()
     game.select_enemy("Elder Dragon")
     game.run()
-    game.run()
-    game.last_player_action = ""
     game.run()
     pygame.quit()
     sys.exit()
