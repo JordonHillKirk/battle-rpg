@@ -6,29 +6,37 @@ import sys
 
 areas = []
 endpoints = []
-s = {"name": "Start", "func": lambda: start()}
+s = {"name": "Start", "func": lambda _: start()}
 normal_areas = [
-    {"name": "Goblin Toll", "func": lambda: goblin_toll()},
-    {"name": "Bandits", "func": lambda: bandits()},
+    {"name": "Goblin Toll", "func": lambda _: goblin_toll()},
+    {"name": "Bandits", "func": lambda _: bandits()},
 ]
 random_encounters = [
-    {"name": "Traveling Merchant", "func": lambda: traveling_merchant(), "target": 25},
-    {"name": "Traveling Merchant", "func": lambda: traveling_merchant(), "target": 25},
-    {"name": "Traveling Merchant2", "func": lambda: traveling_merchant2(), "target": 25},
-    {"name": "Traveling Merchant2", "func": lambda: traveling_merchant2(), "target": 25},
-    {"name": "Actual Fork", "func": lambda: actual_fork(), "target": 10},
-]
+    {"name": "Traveling Merchant", "func": lambda _: traveling_merchant(), "target": 25},
+    {"name": "Traveling Merchant", "func": lambda _: traveling_merchant(), "target": 25},
+    {"name": "Traveling Merchant2", "func": lambda _: traveling_merchant2(), "target": 25},
+    {"name": "Traveling Merchant2", "func": lambda _: traveling_merchant2(), "target": 25},
+    {"name": "Actual Fork", "func": lambda _: actual_fork(), "target": 10},
+] 
+# (Start + branching areas + 1) must be exactly equal to
+# (endpoint_areas + dummy_endpoints + one_way_from_areas)
 branching_areas = [
-    {"name": "Fork", "func": lambda: fork()},
-    # {"name": "Fork2", "func": lambda: fork()},
+    {"name": "Fork", "func": lambda _: fork()},
+    {"name": "Fork2", "func": lambda _: fork()},
 ]
 endpoint_areas = [
-    {"name": "Cave", "func": lambda same_entries=False: cave(same_entries)},
-    {"name": "Oasis", "func": lambda: oasis()},
-    # {"name": "Dead End", "func": lambda: dead_end()}
+    {"name": "Cave", "func": lambda  _, same_entries=False: cave(same_entries)},
+    {"name": "Oasis", "func": lambda _: oasis()},
+    # {"name": "Dead End", "func": lambda _: dead_end()}
 ]
 dummy_endpoints = [
-    {"name": "Dummy Cave", "func": lambda: cave()},
+    {"name": "Dummy Cave", "func": lambda _: cave()},
+]
+one_way_from_areas = [ # endpoints
+    {"name": "Teleporter Trap", "func": lambda first_time: teleporter_trap(first_time)},
+]
+one_way_to_areas = [ # areas
+    {"name": "Teleporter Trap Landing", "func": lambda _: teleporter_trap_landing()},
 ]
 areas_visited = []
 connections = {}
@@ -51,11 +59,12 @@ def print_connections(connections):
             f.write("\n")
 
 def randomize_areas():
-    def connect(from_area: int, to_area: int):
+    def connect(from_area: int, to_area: int, one_way: bool = False):
         if areas[to_area]["name"] == "Dummy Cave":
             to_area = next(area["index"] for area in areas if area["name"] == "Cave")
         connections[from_area]["forward"].append(to_area)
-        connections[to_area]["back"].append(from_area)
+        if not one_way:
+            connections[to_area]["back"].append(from_area)
 
     def find_area_index(a):
         return next(idx for idx, area in enumerate(areas) if area == a)
@@ -63,9 +72,16 @@ def randomize_areas():
     areas.extend(normal_areas)
     areas.extend(random_encounters)
     areas.extend(branching_areas)
+    areas.extend(one_way_to_areas)
 
     endpoints.extend(endpoint_areas)
     endpoints.extend(dummy_endpoints)
+    endpoints.extend(one_way_from_areas)
+
+    one_way_pairs = []  # list of (from_area, to_area)
+    for one_way_from, one_way_to in zip(one_way_from_areas, one_way_to_areas):
+        one_way_pairs.append((one_way_from, one_way_to))
+
     random.shuffle(endpoints)
 
     # Step 1: Add first endpoint
@@ -103,6 +119,13 @@ def randomize_areas():
             branch_index = branching_areas.index(area)
             connect(i, i + 1)
             connect(i, endpoints[branch_index + 1]["index"] + 1)  # Each branch connects to its matching endpoint
+        elif area in one_way_from_areas:
+            to_index = 0
+            for pair in one_way_pairs:
+                if pair[0] == area:
+                    to_index = pair[1]["index"]
+                    break
+            connect(i, to_index, one_way=True)
         elif area in endpoints:
             pass  # Endpoints don't connect forward
         else:
@@ -122,6 +145,7 @@ def main():
 
 def area(num, dir, last_area):
     global random_area_encountered, side_path
+    first_time = not areas_visited[num]
     areas_visited[num] = True
 
     index = None
@@ -141,14 +165,18 @@ def area(num, dir, last_area):
         if random.randint(1, 100) > area["target"]:
             return skip(num, dir)
         
+    if area in one_way_to_areas:
+        if last_area in connections[num]["forward"] or last_area in connections[num]["back"]:
+            return skip(num, dir)
+        
     same_entries = False
     if len(connections[num]["back"]) > 1 and connections[num]["back"][0] == connections[num]["back"][1]:
         same_entries = True
     
     if same_entries:
-        direction, index = area["func"](same_entries)
+        direction, index = area["func"](first_time, same_entries)
     else:
-        direction, index = area["func"]()
+        direction, index = area["func"](first_time)
 
     if area not in random_encounters:
         press_enter_to_continue()
@@ -617,6 +645,47 @@ def actual_fork():
     print("You continue down the path.")
     return forward()
 
+def teleporter_trap(first_time):
+    print("\nYou step into a small clearing.")
+    print("Looking around, you don't notice anything of interest.")
+    if first_time:
+        print("Suddenly a purple light shines brightly around you.")
+        print("You can't keep your eyes open.")
+        return forward()
+    else:
+        while True:
+            print("Suddenly you remember where you are, and don't take another step.\n" \
+            "This was the area that teleported you somewhere else in the forrest.\n" \
+            "Do you wish to be teleported again?\n" \
+            "1. Yes, step in.\n" \
+            "2. No, go back.")
+            choice = input("Which do you choose? (1-2): ")
+            if choice == "1":
+                print("\nYou decide to step forward into the light.\nYou are teleported once again.")
+                return forward()
+            elif choice == "2":
+                print("\nYou go back the way you came.")
+                return back()
+            else:
+                print("Not a valid choice. Try again.")
+
+def teleporter_trap_landing():
+    while True:
+        print("\nYou open your eyes and find yourself not where you were.\n" \
+        "The path extends before you and behind.\n" \
+        "Where do you go?\n" \
+        "1. Forward\n" \
+        "2. Back")
+        choice = input("Which do you choose? (1-2): ")
+        if choice == "1":
+            print("\nYou procede down the path ahead of you")
+            return forward()
+        elif choice == "2":
+            print("\nYou turn around and take the path behind you.")
+            return back()
+        else:
+            print("Not a valid choice. Try again.")
+
 def get_name():
     return game.player.name
 
@@ -738,12 +807,14 @@ def validate_map():
         for i, conn in connections.items():
             for fwd in conn["forward"]:
                 if i not in connections[fwd]["back"]:
-                    print(f"Inconsistent: {areas[i]['name']} -> {areas[fwd]['name']} missing back link!")
-                    all_good = False
+                    if areas[i] not in one_way_from_areas:
+                        print(f"Inconsistent: {areas[i]['name']} -> {areas[fwd]['name']} missing back link!")
+                        all_good = False
             for back in conn["back"]:
                 if i not in connections[back]["forward"]:
                     print(f"Inconsistent: {areas[i]['name']} <- {areas[back]['name']} missing forward link!")
                     all_good = False
+            
         if all_good:
             print("All forward/back connections are consistent.")
         return all_good
@@ -787,14 +858,17 @@ def shut_down():
     sys.exit()
     exit()
 
+def test_map():
+    randomize_areas()
+    validate_map() #infinitely loops looking for an invalid map to properly test if maps are always valid. quits if it finds a problem
+    exit()
+
 if __name__ == "__main__":
+    # test_map()
     game = advanced_rpg.BattleGame()
     game.run()
     init_player()
-
     randomize_areas()
-    # validate_map() #infinitely loops looking for an invalid map to properly test if maps are always valid. quits if it finds a problem
-
     init_environmentals()
     main()
     shut_down()
