@@ -5,6 +5,7 @@ import pygame
 import sys
 
 areas = []
+endpoints = []
 s = {"name": "Start", "func": lambda: start()}
 normal_areas = [
     {"name": "Goblin Toll", "func": lambda: goblin_toll()},
@@ -21,7 +22,7 @@ branching_areas = [
     {"name": "Fork", "func": lambda: fork()},
     # {"name": "Fork2", "func": lambda: fork()},
 ]
-endpoints = [
+endpoint_areas = [
     {"name": "Cave", "func": lambda same_entries=False: cave(same_entries)},
     {"name": "Oasis", "func": lambda: oasis()},
     # {"name": "Dead End", "func": lambda: dead_end()}
@@ -34,10 +35,9 @@ connections = {}
 side_path = False
 
 def init_environmentals():
-    global merchant_found, fork_found, fork_encountered
-    merchant_found = False
+    global random_area_encountered, fork_found
+    random_area_encountered = False
     fork_found = False
-    fork_encountered = False
 
     for _ in areas:
         areas_visited.append(False)
@@ -64,6 +64,7 @@ def randomize_areas():
     areas.extend(random_encounters)
     areas.extend(branching_areas)
 
+    endpoints.extend(endpoint_areas)
     endpoints.extend(dummy_endpoints)
     random.shuffle(endpoints)
 
@@ -120,7 +121,7 @@ def main():
         current, direction, last_area = area(current, direction, last_area)
 
 def area(num, dir, last_area):
-    global merchant_found, side_path, fork_encountered
+    global random_area_encountered, side_path
     areas_visited[num] = True
 
     index = None
@@ -151,12 +152,10 @@ def area(num, dir, last_area):
 
     if area not in random_encounters:
         press_enter_to_continue()
-    elif "Traveling Merchant" in area["name"] and merchant_found:
-        merchant_found = False
+    elif area in random_encounters and random_area_encountered:
+        random_area_encountered = False
         press_enter_to_continue()
-    elif "Actual Fork" in area["name"] and fork_encountered:
-        fork_encountered = False
-        press_enter_to_continue()
+    
     
     if side_path:
         d = "back" if direction == "back" else "forward"
@@ -280,8 +279,8 @@ def bandits():
             print("Not a valid choice. Try again.")
 
 def traveling_merchant():
-    global merchant_found
-    merchant_found = True
+    global random_area_encountered
+    random_area_encountered = True
     while True:
         print("\nYou spot a traveling merchant on the side of the path.")
         print("They say they have helpful goods to sell.")
@@ -290,45 +289,7 @@ def traveling_merchant():
         print("2. No, keep moving on.")
         choice = input("What action do you take? (1-2): ")
         if choice == "1":
-            while True:
-                print(f"\nYou have {print_gold()} gold.")
-                print("The following items are available for purchase: ")
-                print("1. Potion (5 gold)" + ("" if has_gold(5) else "[Not enough gold]"))
-                print("2. Power Boost (10 gold)" + ("" if has_gold(10) else "[Not enough gold]"))
-                options = 3
-                if "Dragon's Bane" not in game.player.inventory:
-                    print(str(options) + ". Dragon's Bane (30 gold)" + ("" if has_gold(30) else "[Not enough gold]"))
-                    options += 1
-                print(f"{options}. Buy nothing")
-                choice = input(f"What do you buy? (1-{options}): ") 
-                print()
-                if choice == "1" and has_gold(5):
-                    print("You buy a Potion")
-                    print("[You spent 5 gold]")
-                    print("[You gained a Potion]")
-                    give_gold(5)
-                    get_item("Potion") 
-                elif choice == "2" and has_gold(10):
-                    print("You buy a Power Boost")
-                    print("[You spent 10 gold]")
-                    print("[You gained a Power Boost]")
-                    give_gold(10)
-                    get_item("Power Boost")
-                elif choice == "3" and has_gold(30) and "Dragon's Bane" not in game.player.inventory:
-                    print("You buy a Dragon's Bane")
-                    print("[You spent 30 gold]")
-                    print("[You gained a Dragon's Bane]")
-                    give_gold(30)
-                    get_item("Dragon's Bane")
-                elif choice == "4" or (choice == "3" and "Dragon's Bane" in game.player.inventory):
-                    print("You say goodbye to the merchant, and move on.")
-                    return forward()
-                else:
-                    if choice in ["1", "2", "3"]:
-                        print("You do not have enough gold for that item.")
-                    else:
-                        print("Not a valid choice. Try again.")
-                press_enter_to_continue()   
+            return shop(("Potion", 5), ("Power Boost", 10), ("Dragon's Bane", 30))   
         elif choice == "2":
             print("You keep going.")
             return forward()
@@ -336,8 +297,8 @@ def traveling_merchant():
             print("Not a valid choice. Try again.")
 
 def traveling_merchant2():
-    global merchant_found
-    merchant_found = True
+    global random_area_encountered
+    random_area_encountered = True
     while True:
         print("\nYou spot a traveling merchant on the side of the path.")
         print("They say they have helpful goods to sell.")
@@ -346,50 +307,53 @@ def traveling_merchant2():
         print("2. No, keep moving on.")
         choice = input("What action do you take? (1-2): ")
         if choice == "1":
-            while True:
-                print(f"\nYou have {print_gold()} gold.")
-                print("The following items are available for purchase: ")
-                print("1. Mana Potion (5 gold)" + ("" if has_gold(5) else "[Not enough gold]"))
-                print("2. Magic Boost (10 gold)" + ("" if has_gold(10) else "[Not enough gold]"))
-                options = 3
-                if "Dragon's Bane" not in game.player.inventory:
-                    print(str(options) + ". Dragon's Bane (30 gold)" + ("" if has_gold(30) else "[Not enough gold]"))
-                    options += 1
-                print(f"{options}. Buy nothing")
-                choice = input(f"What do you buy? (1-{options}): ") 
-                print()
-                if choice == "1" and has_gold(5):
-                    print("You buy a Potion")
-                    print("[You spent 5 gold]")
-                    print("[You gained a Potion]")
-                    give_gold(5)
-                    get_item("Potion") 
-                elif choice == "2" and has_gold(10):
-                    print("You buy a Power Boost")
-                    print("[You spent 10 gold]")
-                    print("[You gained a Power Boost]")
-                    give_gold(10)
-                    get_item("Power Boost")
-                elif choice == "3" and has_gold(30) and "Dragon's Bane" not in game.player.inventory:
-                    print("You buy a Dragon's Bane")
-                    print("[You spent 30 gold]")
-                    print("[You gained a Dragon's Bane]")
-                    give_gold(30)
-                    get_item("Dragon's Bane")
-                elif choice == "4" or (choice == "3" and "Dragon's Bane" in game.player.inventory):
-                    print("You say goodbye to the merchant, and move on.")
-                    return forward()
-                else:
-                    if choice in ["1", "2", "3"]:
-                        print("You do not have enough gold for that item.")
-                    else:
-                        print("Not a valid choice. Try again.")
-                press_enter_to_continue()   
+            return shop(("Mana Potion", 5), ("Magic Boost", 10), ("Dragon's Bane", 30))   
         elif choice == "2":
             print("You keep going.")
             return forward()
         else:
             print("Not a valid choice. Try again.")
+
+def shop(*items):
+    while True:
+        print(f"\nYou have {print_gold()} gold.")
+        print("The following items are available for purchase: ")
+
+        # Build a list of available items
+        available_items = []
+        for item in items:
+            item_name, value = item
+            if item_name == "Dragon's Bane" and has_item("Dragon's Bane"):
+                continue  # Skip if player already has Dragon's Bane
+            available_items.append(item)
+
+        # Display the available items
+        for i, (item_name, value) in enumerate(available_items, 1):
+            print(f"{i}. {item_name} ({value} gold){'' if has_gold(value) else ' [Not enough gold]'}")
+        print(f"{len(available_items)+1}. Buy nothing")
+
+        choice = input(f"What do you buy? (1-{len(available_items)+1}): ")
+        print()
+
+        if choice == str(len(available_items)+1):
+            print("You say goodbye to the merchant, and move on.")
+            return forward()
+
+        elif choice.isnumeric() and 1 <= int(choice) <= len(available_items):
+            item_name, value = available_items[int(choice)-1]
+            if has_gold(value):
+                print(f"You buy {'a' if item_name[0].lower() not in 'aeiou' else 'an'} {item_name}.")
+                print(f"[You spent {value} gold]")
+                print(f"[You gained {'a' if item_name[0].lower() not in 'aeiou' else 'an'} {item_name}]")
+                give_gold(value)
+                get_item(item_name)
+            else:
+                print("You do not have enough gold for that item.")
+        else:
+            print("Not a valid choice. Try again.")
+
+        press_enter_to_continue()
+   
 
 def cave(same_entries = False):
     while True:
@@ -629,11 +593,11 @@ def fork():
             print("Not a valid choice. Try again.")
 
 def actual_fork():
-    global fork_found, fork_encountered
+    global fork_found, random_area_encountered
     if fork_found:
         return forward()
     fork_found = True
-    fork_encountered = True
+    random_area_encountered = True
     while True:
         print("\nYou come to a fork in the road.")
         print("Not that kind, this is an actual fork!")
@@ -671,6 +635,9 @@ def get_gold(val: int):
 
 def print_gold():
     return game.player.gold
+
+def has_item(item: str):
+    return item in game.player.inventory
 
 def get_item(item: str):
     game.player.inventory.append(item)
@@ -737,10 +704,10 @@ def heal_mp(val:int = None):
         game.player.mp = game.player.max_mp
 
 def init_player():
-    game.player.gold = 5
+    game.player.gold = 30
     game.player.cha = 1
     if game.player.name == "Bard":
-        game.player.cha += 3
+        game.player.cha += 4
     game.player.dex = 3
 
 def press_enter_to_continue():
@@ -808,38 +775,9 @@ def validate_map():
         dfs(0)  # Start from Start (index 0)
         
     while check_reachability() and check_forward_back_consistency():
-        global areas, s, normal_areas, random_encounters, branching_areas, endpoints, dummy_endpoints, connections
+        global areas, endpoints, connections
         areas = []
-        s = {"name": "Start", "func": lambda: start()}
-        normal_areas = [
-            {"name": "Goblin Toll", "func": lambda: goblin_toll()},
-            {"name": "Bandits", "func": lambda: bandits()},
-        ]
-        random_encounters = [
-            {"name": "Traveling Merchant", "func": lambda: traveling_merchant(), "target": 25},
-            {"name": "Traveling Merchant", "func": lambda: traveling_merchant(), "target": 25},
-            {"name": "Actual Fork", "func": lambda: actual_fork(), "target": 10},
-        ]
-        branching_areas = [
-            {"name": "Fork", "func": lambda: fork()},
-            {"name": "Fork2", "func": lambda: fork()},
-            {"name": "Fork3", "func": lambda: fork()},
-            {"name": "Fork3", "func": lambda: fork()},
-            {"name": "Fork3", "func": lambda: fork()},
-            {"name": "Fork3", "func": lambda: fork()},
-        ]
-        endpoints = [
-            {"name": "Cave", "func": lambda: cave()},
-            {"name": "Oasis", "func": lambda: oasis()},
-            {"name": "Dead End", "func": lambda: dead_end()},
-            {"name": "Dead End2", "func": lambda: dead_end()},
-            {"name": "Dead End2", "func": lambda: dead_end()},
-            {"name": "Dead End2", "func": lambda: dead_end()},
-            {"name": "Dead End2", "func": lambda: dead_end()},
-        ]
-        dummy_endpoints = [
-            {"name": "Dummy Cave", "func": lambda: cave()},
-        ]
+        endpoints = []
         connections = {}
         randomize_areas()
     visualize_map()
