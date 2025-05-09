@@ -181,9 +181,8 @@ def area(num, dir, last_area):
         print("d =", d)
         print("index =", index)
         print("side_path =", side_path)
-        print("merchant_found =", merchant_found)
-        print("fork_encountered =", fork_encountered)
-        exit()
+        print("random_area_encountered =", random_area_encountered)
+        shut_down()
     
 def forward(option = 0):
     return "forward", option
@@ -677,11 +676,11 @@ def defense_up(val: int):
 def death():
     print("\nYou have died. Your journey is over.")
     input()
-    exit()
+    shut_down()
 
 def victory():
     print("You finished with", game.player.gold, "gold. Well done!")
-    exit()
+    shut_down()
 
 def check(dc, stat):
     return random.randint(1, 20) + getattr(game.player, stat) > dc
@@ -704,7 +703,7 @@ def heal_mp(val:int = None):
         game.player.mp = game.player.max_mp
 
 def init_player():
-    game.player.gold = 30
+    game.player.gold = 5
     game.player.cha = 1
     if game.player.name == "Bard":
         game.player.cha += 4
@@ -781,6 +780,11 @@ def validate_map():
         connections = {}
         randomize_areas()
     visualize_map()
+    shut_down()
+
+def shut_down():
+    pygame.quit()
+    sys.exit()
     exit()
 
 if __name__ == "__main__":
@@ -793,6 +797,5 @@ if __name__ == "__main__":
 
     init_environmentals()
     main()
-    pygame.quit()
-    sys.exit()
+    shut_down()
     
