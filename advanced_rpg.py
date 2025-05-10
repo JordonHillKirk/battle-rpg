@@ -437,7 +437,7 @@ class BattleGame:
                     self.last_player_action = f"You cast {self.selected_move} for {damage} damage!"
                 elif "magic boost" in spell:
                     self.player.magic += spell["magic boost"]
-                    self.last_player_action = f"You cast {self.selected_move} boosting Magic by {spell["magic boost"]}."
+                    self.last_player_action = f"You cast {self.selected_move} boosting Magic by {spell['magic boost']}."
                 elif spell.get("effect") == "summon_sheep":
                     self.sheep_block_active = True
                     self.sheep_block_duration = random.randint(1, 2)

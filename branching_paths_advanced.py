@@ -47,13 +47,16 @@ def init_environmentals():
     random_area_encountered = False
     fork_found = False
 
-    for _ in areas:
-        areas_visited.append(False)
+    for area in areas:
+        if area not in dummy_endpoints:
+            areas_visited.append(False)
+        else:
+            areas_visited.append(True)
 
 def print_connections(connections):
     with open(advanced_rpg.getCurrentDirectory() + "map.txt", "w") as f:
         for area in list(connections.keys()):
-            f.write(f"area {area}: {str(areas[area]["name"])}\n")
+            f.write(f"area {area}: {str(areas[area]['name'])}\n")
             f.write(f"forward: {str(connections[area]['forward'])}\n")
             f.write(f"back: {str(connections[area]['back'])}\n")
             f.write("\n")
@@ -160,6 +163,8 @@ def area(num, dir, last_area):
                 side_path = True
             else:
                 side_path = False
+    else:
+        side_path = False
 
     if area in random_encounters:
         if random.randint(1, 100) > area["target"]:
