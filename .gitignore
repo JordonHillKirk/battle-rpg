@@ -1,3 +1,16 @@
 map.txt
-__pycache__/advanced_rpg.cpython-312.pyc
 */__pycache__/*
+__pycache__/advanced_rpg.cpython-312.pyc
+areas/__pycache__/__init__.cpython-312.pyc
+areas/__pycache__/cave.cpython-312.pyc
+areas/__pycache__/encounters.cpython-312.pyc
+areas/__pycache__/endpoints.cpython-312.pyc
+areas/__pycache__/fork.cpython-312.pyc
+areas/__pycache__/merchants.cpython-312.pyc
+areas/__pycache__/start.cpython-312.pyc
+areas/__pycache__/teleport.cpython-312.pyc
+core/__pycache__/area_utils.cpython-312.pyc
+core/__pycache__/game_context.cpython-312.pyc
+core/__pycache__/game_utils.cpython-312.pyc
+core/__pycache__/map_engine.cpython-312.pyc
+map.txt
