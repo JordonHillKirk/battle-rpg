@@ -1,0 +1,151 @@
+# core/game_utils.py
+
+import random
+import pygame
+import sys
+
+# --------------------------------------------------
+# PLAYER INFO
+# --------------------------------------------------
+
+def get_name(ctx):
+    return ctx.game.player.name
+
+
+def has_gold(ctx, val=0):
+    return ctx.game.player.gold >= val and ctx.game.player.gold > 0
+
+
+def give_gold(ctx, val: int):
+    if val == -1:
+        ctx.game.player.gold = 0
+    else:
+        ctx.game.player.gold = max(ctx.game.player.gold - val, 0)
+
+
+def get_gold(ctx, val: int):
+    ctx.game.player.gold += val
+
+
+def print_gold(ctx):
+    return ctx.game.player.gold
+
+
+def has_item(ctx, item: str):
+    return item in ctx.game.player.inventory
+
+
+def get_item(ctx, item: str):
+    ctx.game.player.inventory.append(item)
+
+
+# --------------------------------------------------
+# COMBAT SYSTEM
+# --------------------------------------------------
+
+def fight(ctx, enemy, new_fight=True):
+    print("\n[Open battle window]")
+
+    if new_fight:
+        ctx.game.battle_prep(enemy)
+    else:
+        ctx.game.ran_away = False
+        ctx.game.last_player_action = ""
+
+    while alive(ctx) and enemy_alive(ctx) and not ctx.game.ran_away:
+        ctx.game.make_buttons()
+        ctx.game.run_battle()
+
+        if ctx.game.ran_away:
+            return False
+
+    if not alive(ctx):
+        death(ctx)
+
+    return True
+
+
+def alive(ctx):
+    return ctx.game.player.is_alive()
+
+
+def enemy_alive(ctx):
+    return ctx.game.enemy.is_alive()
+
+
+def attack_up(ctx, val: int):
+    ctx.game.player.attack += val
+
+
+def defense_up(ctx, val: int):
+    ctx.game.player.defense += val
+
+
+# --------------------------------------------------
+# DICE / CHECKS
+# --------------------------------------------------
+
+def check(ctx, dc, stat):
+    return random.randint(1, 20) + getattr(ctx.game.player, stat) > dc
+
+
+# --------------------------------------------------
+# HEALING / REST
+# --------------------------------------------------
+
+def rest(ctx):
+    heal_hp(ctx)
+    heal_mp(ctx)
+    print("Your HP and MP have been restored to full.")
+
+
+def heal_hp(ctx, val: int = None):
+    if val:
+        ctx.game.player.hp = min(ctx.game.player.max_hp, ctx.game.player.hp + val)
+    else:
+        ctx.game.player.hp = ctx.game.player.max_hp
+
+
+def heal_mp(ctx, val: int = None):
+    if val:
+        ctx.game.player.mp = min(ctx.game.player.max_mp, ctx.game.player.mp + val)
+    else:
+        ctx.game.player.mp = ctx.game.player.max_mp
+
+
+# --------------------------------------------------
+# PLAYER INITIALIZATION
+# --------------------------------------------------
+
+def init_player(ctx):
+    ctx.game.player.gold = 5
+    ctx.game.player.cha = 1
+
+    if ctx.game.player.name == "Bard":
+        ctx.game.player.cha += 4
+
+    ctx.game.player.dex = 3
+
+
+# --------------------------------------------------
+# GAME END STATES
+# --------------------------------------------------
+
+def death(ctx):
+    print("\nYou have died. Your journey is over.")
+    input("Press Enter to Quit...")
+    shut_down()
+
+
+def victory(ctx):
+    print("You finished with", ctx.game.player.gold, "gold. Well done!")
+    shut_down()
+
+
+# --------------------------------------------------
+# SHUTDOWN
+# --------------------------------------------------
+
+def shut_down():
+    pygame.quit()
+    sys.exit()

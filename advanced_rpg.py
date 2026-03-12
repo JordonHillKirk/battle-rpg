@@ -203,9 +203,16 @@ class BattleGame:
         else:
             self.enemy = copy.deepcopy(random.choice(self.enemies))
 
-    def run(self):
+    def minimize_window(self):
+        pygame.display.iconify()
+    
+    def restore_window(self):
+        pygame.display.set_mode((800, 600))
+
+    def run_battle(self):
+        self.restore_window()   # show window again
         self.running = True
-        restore_window()
+
         while self.running:
             screen.fill((0, 0, 0))
             self.handle_events()
@@ -213,8 +220,8 @@ class BattleGame:
             self.logic()
             pygame.display.flip()
             clock.tick(60)
-        pygame.display.iconify()
-        
+
+        self.minimize_window()
 
     def handle_events(self):
         mouse_pos = pygame.mouse.get_pos()  # <-- NEW
@@ -236,9 +243,29 @@ class BattleGame:
     def select_character(self, character):
         self.player = Player(**Player.load_player_from_file(character))
         self.in_character_select = False
-        self.running = False
-        self.make_buttons()
+        self.running = False   # ← NOW CORRECT
 
+    def run_character_select(self):
+        """
+        Runs ONLY the character select screen.
+        Blocks execution until a character is chosen.
+        """
+        self.in_character_select = True
+        self.running = True
+        self.make_character_select_buttons()
+
+        while self.running:
+            screen.fill((0, 0, 0))
+            self.handle_events()
+            self.render()
+            pygame.display.flip()
+            clock.tick(60)
+
+        # after selection → hide window
+        self.minimize_window()
+
+        return self.player
+    
     def make_buttons(self):
         self.buttons.clear()
         if self.turn != "player":
@@ -544,7 +571,7 @@ class BattleGame:
 if __name__ == "__main__":
     game = BattleGame()
     game.select_enemy("Bandit")
-    game.run()
-    game.run()
+    game.run_battle()
+    game.run_battle()
     pygame.quit()
     sys.exit()
