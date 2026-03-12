@@ -1,60 +1,60 @@
 area 0: Start
-forward: [1, 3]
+forward: [1, 11]
 back: []
 
-area 1: Fork2
-forward: [14, 6]
+area 1: Traveling Merchant
+forward: [2]
 back: [0]
 
-area 2: Dummy Cave
-forward: []
-back: []
+area 2: Bandits
+forward: [3]
+back: [1]
 
 area 3: Traveling Merchant
 forward: [4]
-back: [0]
+back: [2]
 
-area 4: Traveling Merchant
-forward: [5]
+area 4: Fork2
+forward: [5, 13]
 back: [3]
 
-area 5: Teleporter Trap
-forward: [12]
+area 5: Goblin Toll
+forward: [6]
 back: [4]
 
-area 6: Actual Fork
+area 6: Traveling Merchant2
 forward: [7]
-back: [1]
+back: [5]
 
 area 7: Traveling Merchant2
 forward: [8]
 back: [6]
 
-area 8: Fork
-forward: [9, 10]
+area 8: Actual Fork
+forward: [9]
 back: [7]
 
-area 9: Oasis
+area 9: Fork
+forward: [10, 10]
+back: [8]
+
+area 10: Cave
 forward: []
-back: [8]
+back: [9, 9]
 
-area 10: Goblin Toll
-forward: [11]
-back: [8]
-
-area 11: Bandits
+area 11: Teleporter Trap Landing
 forward: [12]
-back: [10]
+back: [0]
 
-area 12: Teleporter Trap Landing
-forward: [13]
+area 12: Teleporter Trap
+forward: [11]
 back: [11]
 
-area 13: Traveling Merchant2
-forward: [14]
-back: [12]
-
-area 14: Cave
+area 13: Oasis
 forward: []
-back: [1, 13]
+back: [4]
+
+area 14: Dummy Cave
+forward: []
+back: []
 

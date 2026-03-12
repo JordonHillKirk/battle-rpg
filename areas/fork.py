@@ -3,18 +3,6 @@
 from core.area_utils import forward, back
 from core.game_utils import attack_up
 
-
-# --------------------------------------------------
-# SHARED STATE
-# --------------------------------------------------
-
-# Tracks whether player entered from side path
-side_path = False
-
-# Tracks whether joke fork already found
-fork_found = False
-
-
 # --------------------------------------------------
 # T-INTERSECTION FORK
 # --------------------------------------------------
@@ -65,12 +53,11 @@ def fork(ctx, kwargs):
 # --------------------------------------------------
 
 def actual_fork(ctx, kwargs):
-
-    if ctx.fork_found:
+    if ctx.flags.fork_found:
         ctx.map.random_encounter_triggered = False
         return forward()
     
-    ctx.fork_found = True
+    ctx.flags.fork_found = True
 
     while True:
         print("\nYou come to a fork in the road.")

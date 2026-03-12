@@ -29,11 +29,13 @@ def cave(ctx, kwargs: dict):
         print("Do you enter, turn back, or try the other path?")
         print("1. Enter the cave")
         print("2. Turn back")
+        num_options = 2
 
         if not same_entries:
             print("3. Other path")
+            num_options += 1
 
-        choice = input("What action do you take? (1-3): ")
+        choice = input(f"What action do you take? (1-{num_options})): ")
         print()
 
         if choice == "1":
