@@ -13,10 +13,10 @@ RULES = {}
 
 def print_connections(areas, conns):
     with open("map.txt", "w") as f:
-        for area in conns:
-            f.write(f"area {area}: {areas[area]['name']}\n")
-            f.write(f"forward: {conns[area]['forward']}\n")
-            f.write(f"back: {conns[area]['back']}\n\n")
+        for node in conns:
+            f.write(f"area {node}: {areas[node]['name']}\n")
+            f.write(f"forward: {conns[node]['forward']}\n")
+            f.write(f"back: {conns[node]['back']}\n\n")
 
 
 # --------------------------------------------------
@@ -76,8 +76,8 @@ def randomize_areas(ctx):
         # redirect dummy cave
         if areas[to_area]["name"] == "Dummy Cave":
             to_area = next(
-                area["index"] for area in areas
-                if area["name"] == "Cave"
+                node["index"] for node in areas
+                if node["name"] == "Cave"
             )
 
         connections[from_area]["forward"].append(to_area)
@@ -86,7 +86,7 @@ def randomize_areas(ctx):
             connections[to_area]["back"].append(from_area)
 
     def find_area_index(a):
-        return next(idx for idx, area in enumerate(areas) if area == a)
+        return next(idx for idx, node in enumerate(areas) if node == a)
 
     areas = []
     endpoints = []
@@ -113,8 +113,8 @@ def randomize_areas(ctx):
     areas.insert(0, s)
 
     # assign indices
-    for i, area in enumerate(areas):
-        area["index"] = i
+    for i, node in enumerate(areas):
+        node["index"] = i
 
     # insert endpoints for branches
     for i, branch in enumerate(branching_areas, start=1):
@@ -126,30 +126,30 @@ def randomize_areas(ctx):
     areas.append(endpoints[-1])
 
     # reindex
-    for i, area in enumerate(areas):
-        area["index"] = i
+    for i, node in enumerate(areas):
+        node["index"] = i
         connections[i] = {"forward": [], "back": []}
 
     endpoints.sort(key=lambda ep: ep["index"])
     branching_areas.sort(key=lambda br: br["index"])
 
     # connect graph
-    for i, area in enumerate(areas):
+    for i, node in enumerate(areas):
 
-        if area["name"] == "Start":
+        if node["name"] == "Start":
             connect(i, i + 1)
             connect(i, endpoints[0]["index"] + 1)
 
-        elif area in branching_areas:
-            branch_index = branching_areas.index(area)
+        elif node in branching_areas:
+            branch_index = branching_areas.index(node)
             connect(i, i + 1)
             connect(i, endpoints[branch_index + 1]["index"] + 1)
 
-        elif area in one_way_from_areas:
+        elif node in one_way_from_areas:
             landing = one_way_to_areas[0]
             connect(i, landing["index"], one_way=True)
 
-        elif area in endpoints:
+        elif node in endpoints:
             pass
 
         else:
@@ -159,8 +159,8 @@ def randomize_areas(ctx):
     ctx.map.areas = areas
     ctx.map.endpoints = endpoints
     ctx.map.connections = connections
-    for area in areas:
-        if area in dummy_endpoints:
+    for node in areas:
+        if node in dummy_endpoints:
             ctx.map.visited.append(True)
         else:
             ctx.map.visited.append(False)
@@ -183,7 +183,7 @@ def skip(ctx, num, dir):
 
 def area(ctx, num, dir, last_area):
     side_path = False
-    area = ctx.map.areas[num]
+    node = ctx.map.areas[num]
 
     # --------------------------------------------------
     # VISIT TRACKING
@@ -192,16 +192,16 @@ def area(ctx, num, dir, last_area):
     ctx.map.visited[num] = True
 
     # --------------------------------------------------
-    # RULE ENGINE (NEW)
+    # RULE ENGINE
     # --------------------------------------------------
-    rule_result = evaluate_rules(ctx, area, num, dir, last_area)
+    rule_result = evaluate_rules(ctx, node, num, dir, last_area)
     if rule_result is not None:
         return rule_result
 
     # --------------------------------------------------
-    # BRANCHING AREA LOGIC (UNCHANGED BEHAVIOR)
+    # BRANCHING AREA LOGIC
     # --------------------------------------------------
-    if area in branching_areas:
+    if node in branching_areas:
 
         # degenerate branch (both exits same)
         if ctx.map.connections[num]["forward"][0] == ctx.map.connections[num]["forward"][1]:
@@ -228,7 +228,7 @@ def area(ctx, num, dir, last_area):
     # --------------------------------------------------
     # CALL AREA FUNCTION (SIGNATURE ADAPTER)
     # --------------------------------------------------
-    func = area["func"]
+    func = node["func"]
     kwargs = {
         "first_time": first_time,
         "same_entries": same_entries,
@@ -240,7 +240,7 @@ def area(ctx, num, dir, last_area):
     # --------------------------------------------------
     # PAUSE HANDLING
     # --------------------------------------------------
-    if area not in random_encounters:
+    if node not in random_encounters:
         press_enter_to_continue()
     elif ctx.map.random_encounter_triggered:
         ctx.map.random_encounter_triggered = False
@@ -249,14 +249,14 @@ def area(ctx, num, dir, last_area):
     # --------------------------------------------------
     # DIRECTION RESOLUTION
     # --------------------------------------------------
-    # Branching areas decide direction themselves
-    if area in branching_areas:
-        d = direction
+    if node in branching_areas and direction == "forward" and index == 1:
+        # side path ALWAYS treated as forward
+        d = "forward"
     else:
-        if side_path:
-            d = "back" if direction == "back" else "forward"
+        if direction == "forward":
+            d = dir
         else:
-            d = "forward" if direction == dir else "back"
+            d = "back" if dir == "forward" else "forward"
 
     # --------------------------------------------------
     # ROUTING RESOLUTION
@@ -284,24 +284,24 @@ def area(ctx, num, dir, last_area):
         print("index =", index)
         raise
 
-def evaluate_rules(ctx,area, num, dir, last_area):
-    rules = area.get("rules", [])
+def evaluate_rules(ctx, node, num, dir, last_area):
+    rules = node.get("rules", [])
 
     for rule in rules:
-        result = RULES[rule](ctx, area, num, dir, last_area)
+        result = RULES[rule](ctx, node, num, dir, last_area)
         if result is not None:
             return result
 
     return None
 
-def rule_random_encounter(ctx, area, num, dir, last_area):
-    if random.randint(1, 100) > area["target"]:
+def rule_random_encounter(ctx, node, num, dir, last_area):
+    if random.randint(1, 100) > node["target"]:
         return skip(ctx, num, dir)
     ctx.map.random_encounter_triggered = True
 
 RULES["random_encounter"] = rule_random_encounter
 
-def rule_teleport_only(ctx, area, num, dir, last_area):
+def rule_teleport_only(ctx, node, num, dir, last_area):
     if not ctx.arrival.teleport:
         return skip(ctx, num, dir)
 
@@ -310,7 +310,7 @@ def rule_teleport_only(ctx, area, num, dir, last_area):
 
 RULES["teleport_only"] = rule_teleport_only
 
-def rule_one_way_to(ctx, area, num, dir, last_area):
+def rule_one_way_to(ctx, node, num, dir, last_area):
     if last_area in ctx.map.connections[num]["forward"]:
         return skip(ctx, num, dir)
 
