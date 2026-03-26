@@ -46,6 +46,8 @@ def get_item(ctx, item: str):
 def fight(ctx, enemy, new_fight=True):
     print("\n[Open battle window]")
 
+    ctx.game.restore_window()
+
     if new_fight:
         ctx.game.battle_prep(enemy)
     else:
