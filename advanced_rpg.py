@@ -207,7 +207,15 @@ class BattleGame:
         pygame.display.iconify()
     
     def restore_window(self):
-        pygame.display.set_mode((800, 600))
+        if platform.system() == "Windows":
+            try:
+                import win32gui
+                import win32con
+                hwnd = pygame.display.get_wm_info()['window']
+                win32gui.ShowWindow(hwnd, win32con.SW_RESTORE)
+                win32gui.SetForegroundWindow(hwnd)
+            except:
+                pass
 
     def run_battle(self):
         self.restore_window()   # show window again
