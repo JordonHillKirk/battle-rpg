@@ -42,3 +42,16 @@ from .endpoints import (
     oasis,
     dead_end,
 )
+
+# ---- one way ----
+from .garden_gate import (
+    garden_gate,
+    back_of_gate
+)
+
+# ---- password gate ----
+from .password_gate import (
+    create_password_gate_areas,
+    tree,
+    password_gate
+)
