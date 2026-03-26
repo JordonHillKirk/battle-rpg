@@ -1,9 +1,11 @@
 # core/map_engine.py
 
+import copy
 import random
 
 from areas import *
 from core.area_utils import press_enter_to_continue
+from core.game_context import GameContext
 
 RULES = {}
 
@@ -18,66 +20,149 @@ def print_connections(areas, conns):
             f.write(f"forward: {conns[node]['forward']}\n")
             f.write(f"back: {conns[node]['back']}\n\n")
 
+def visualize_map(ctx):
+    areas = ctx.map.areas
+    connections = ctx.map.connections
+
+    def dfs(area_index, depth=0, visited=None):
+        if visited is None:
+            visited = set()
+
+        indent = "  " * depth
+        node = areas[area_index]
+        name = node["name"]
+
+        forward = connections.get(area_index, {}).get("forward", [])
+
+        # Color / markers
+        if node.get("type") == "endpoint":
+            marker = "[END]"
+        elif node.get("type") == "branch":
+            marker = "[BRANCH]"
+        elif node.get("type") == "one_way_to_normal":
+            marker = "[ONE-WAY]"
+        elif node.get("is_password_tree"):
+            marker = "[TREE]"
+        else:
+            marker = ""
+
+        print(f"{indent}- {name} (#{area_index}) {marker}")
+
+        visited.add(area_index)
+
+        for next_area in forward:
+            if next_area not in visited:
+                dfs(next_area, depth + 1, visited)
+            else:
+                print(f"{'  ' * (depth + 1)}↪ {areas[next_area]['name']} (#{next_area}) [loop]")
+
+    print("\nMAP VISUALIZATION:")
+    dfs(0)
+   
+def validate_return_to_start(ctx):
+    areas = ctx.map.areas
+    connections = ctx.map.connections
+
+    reachable = set()
+    stack = [0]  # Start node
+
+    while stack:
+        current = stack.pop()
+
+        if current in reachable:
+            continue
+
+        reachable.add(current)
+
+        # Traverse BOTH directions
+        neighbors = (
+            connections[current]["forward"] +
+            connections[current]["back"]
+        )
+
+        for n in neighbors:
+            if n not in reachable:
+                stack.append(n)
+
+    # Check all nodes
+    all_nodes = set(connections.keys())
+    unreachable = all_nodes - reachable
+
+    if unreachable:
+        print("❌ These areas cannot return to Start:")
+        for i in unreachable:
+            print(f"- {areas[i]['name']} (#{i})")
+        return False
+
+    print("✅ All areas can reach Start")
+    return True
 
 # --------------------------------------------------
 # AREA DEFINITIONS
 # --------------------------------------------------
 
-s = {"name": "Start", "func": start}
+# path generators must equal path consumers.
+s = {"name": "Start", "func": start, "type": "start"}
 
 normal_areas = [
-    {"name": "Goblin Toll", "func": goblin_toll},
-    {"name": "Bandits", "func": bandits},
+    {"name": "Goblin Toll", "func": goblin_toll, "type": "normal"},
+    {"name": "Bandits", "func": bandits, "type": "normal"},
 ]
 
 random_encounters = [
-    {"name": "Traveling Merchant", "func": traveling_merchant, "target": 25, "rules": ["random_encounter"]},
-    {"name": "Traveling Merchant", "func": traveling_merchant, "target": 25, "rules": ["random_encounter"]},
-    {"name": "Traveling Merchant2", "func": traveling_merchant2, "target": 25, "rules": ["random_encounter"]},
-    {"name": "Traveling Merchant2", "func": traveling_merchant2, "target": 25, "rules": ["random_encounter"]},
-    {"name": "Actual Fork", "func": actual_fork, "target": 10, "rules": ["random_encounter"]},
+    {"name": "Traveling Merchant", "func": traveling_merchant, "type": "normal", "target": 25, "rules": ["random_encounter"]},
+    {"name": "Traveling Merchant", "func": traveling_merchant, "type": "normal", "target": 25, "rules": ["random_encounter"]},
+    {"name": "Traveling Merchant2", "func": traveling_merchant2, "type": "normal", "target": 25, "rules": ["random_encounter"]},
+    {"name": "Traveling Merchant2", "func": traveling_merchant2, "type": "normal", "target": 25, "rules": ["random_encounter"]},
+    {"name": "Actual Fork", "func": actual_fork, "type": "normal", "target": 10, "rules": ["random_encounter"]},
 ]
 
 branching_areas = [
-    {"name": "Fork", "func": fork},
-    {"name": "Fork2", "func": fork},
+    {"name": "Fork", "func": fork, "type": "branch"},
+    {"name": "Fork2", "func": fork, "type": "branch"},
 ]
 
+cave_node = {"name": "Cave", "func": cave, "type": "endpoint"}
 endpoint_areas = [
-    {"name": "Cave", "func": cave},
-    {"name": "Oasis", "func": oasis},
+    cave_node,
+    {"name": "Oasis", "func": oasis, "type": "endpoint"},
 ]
 
 dummy_endpoints = [
-    {"name": "Dummy Cave", "func": cave},
+    {"name": "Dummy Cave", "type": "dummy", "target": cave_node},
+]
+
+teleport_landing = {"name": "Teleport Landing", "func": teleporter_trap_landing, "type": "normal", "rules": ["teleport_only"]}
+
+one_way_to_areas = [
+    teleport_landing
 ]
 
 one_way_from_areas = [
-    {"name": "Teleporter Trap", "func": teleporter_trap},
-]
-
-one_way_to_areas = [
     {
-        "name": "Teleporter Trap Landing",
-        "func": teleporter_trap_landing,
-        "rules": ["teleport_only"]
-    },
+        "name": "Teleporter Trap",
+        "func": teleporter_trap,
+        "type": "one_way_to_normal",
+        "target": teleport_landing
+    }
 ]
 
+password_gate_area = {"name": "Password Gate", "func": password_gate, "type": "normal"}
 
 # --------------------------------------------------
 # MAP RANDOMIZATION (RESTORED)
 # --------------------------------------------------
 
-def randomize_areas(ctx):
+def randomize_areas(ctx: GameContext):
 
     def connect(from_area, to_area, one_way=False):
+        to_node = areas[to_area]
 
         # redirect dummy cave
-        if areas[to_area]["name"] == "Dummy Cave":
+        if to_node.get("type") == "dummy":
             to_area = next(
                 node["index"] for node in areas
-                if node["name"] == "Cave"
+                if node["name"] == to_node["target"]["name"]
             )
 
         connections[from_area]["forward"].append(to_area)
@@ -86,85 +171,107 @@ def randomize_areas(ctx):
             connections[to_area]["back"].append(from_area)
 
     def find_area_index(a):
-        return next(idx for idx, node in enumerate(areas) if node == a)
+        return next(idx for idx, node in enumerate(areas) if node["name"] == a["name"])
+    
+    #initialize password gate areas
+    password_tree_areas = create_password_gate_areas(ctx)
 
-    areas = []
-    endpoints = []
-    connections = {}
-    areas.clear()
-    endpoints.clear()
-    connections.clear()
+    while True:
+        areas = []
+        endpoints = []
+        connections = {}
+        areas.clear()
+        endpoints.clear()
+        connections.clear()
 
-    areas.extend(normal_areas)
-    areas.extend(random_encounters)
-    areas.extend(branching_areas)
-    areas.extend(one_way_to_areas)
+        areas.extend(copy.deepcopy(normal_areas))
+        areas.extend(copy.deepcopy(random_encounters))
+        areas.extend(copy.deepcopy(branching_areas))
+        areas.extend(copy.deepcopy(one_way_to_areas))
+        areas.extend(password_tree_areas)
 
-    endpoints.extend(endpoint_areas)
-    endpoints.extend(dummy_endpoints)
-    endpoints.extend(one_way_from_areas)
+        endpoints.extend(copy.deepcopy(endpoint_areas))
+        endpoints.extend(copy.deepcopy(dummy_endpoints))
+        endpoints.extend(copy.deepcopy(one_way_from_areas))
 
-    random.shuffle(endpoints)
+        random.shuffle(endpoints)
 
-    # first endpoint
-    areas.append(endpoints[0])
+        # first endpoint
+        areas.append(endpoints[0])
 
-    random.shuffle(areas)
-    areas.insert(0, s)
+        random.shuffle(areas)
+        areas.insert(0, s)
 
-    # assign indices
-    for i, node in enumerate(areas):
-        node["index"] = i
+        # assign indices
+        for i, node in enumerate(areas):
+            node["index"] = i
+        
+        # insert password gate
+        max_tree_index = max(
+            node["index"]
+            for node in areas
+            if node.get("is_password_tree")
+        )
+        gate_index = max_tree_index + 1
+        areas.insert(gate_index, password_gate_area)
 
-    # insert endpoints for branches
-    for i, branch in enumerate(branching_areas, start=1):
-        branch_index = find_area_index(branch)
-        insert_index = random.randint(branch_index + 1, len(areas))
-        areas.insert(insert_index, endpoints[i])
+        # insert endpoints for branches
+        for i, branch in enumerate(branching_areas, start=1):
+            branch_index = find_area_index(branch)
+            insert_index = random.randint(branch_index + 1, len(areas))
+            areas.insert(insert_index, endpoints[i])
 
-    # final endpoint
-    areas.append(endpoints[-1])
+        # final endpoint
+        areas.append(endpoints[-1])
 
-    # reindex
-    for i, node in enumerate(areas):
-        node["index"] = i
-        connections[i] = {"forward": [], "back": []}
+        # reindex
+        for i, node in enumerate(areas):
+            node["index"] = i
+            if node["type"] != "dummy":
+                connections[i] = {"forward": [], "back": []}
 
-    endpoints.sort(key=lambda ep: ep["index"])
-    branching_areas.sort(key=lambda br: br["index"])
+        endpoints.sort(key=lambda ep: ep["index"])
+        branching_nodes = [n for n in areas if n.get("type") == "branch"]
+        branching_nodes.sort(key=lambda n: n["index"])
 
-    # connect graph
-    for i, node in enumerate(areas):
+        # connect graph
+        for i, node in enumerate(areas):
 
-        if node["name"] == "Start":
-            connect(i, i + 1)
-            connect(i, endpoints[0]["index"] + 1)
+            node_type = node.get("type", "normal")
 
-        elif node in branching_areas:
-            branch_index = branching_areas.index(node)
-            connect(i, i + 1)
-            connect(i, endpoints[branch_index + 1]["index"] + 1)
+            if node_type == "start":
+                connect(i, i + 1)
+                connect(i, endpoints[0]["index"] + 1)
 
-        elif node in one_way_from_areas:
-            landing = one_way_to_areas[0]
-            connect(i, landing["index"], one_way=True)
+            elif node_type == "branch":
+                branch_index = branching_nodes.index(node)
+                connect(i, i + 1)
+                connect(i, endpoints[branch_index + 1]["index"] + 1)
 
-        elif node in endpoints:
-            pass
+            elif node_type == "one_way_to_normal":
+                to_index = find_area_index(node["target"])
+                connect(i, to_index, one_way=True)
 
-        else:
-            connect(i, i + 1)
+            elif node_type in ["endpoint", "dummy"]:
+                pass
+
+            else:
+                connect(i, i + 1)
+            
+        if validate_return_to_start:
+            break
+        print("Map generation failed.")
 
     print_connections(areas, connections)
     ctx.map.areas = areas
     ctx.map.endpoints = endpoints
     ctx.map.connections = connections
+    ctx.map.visited = []
     for node in areas:
-        if node in dummy_endpoints:
+        if node.get("type") == "dummy":
             ctx.map.visited.append(True)
         else:
             ctx.map.visited.append(False)
-
 
 # --------------------------------------------------
 # SKIP ROUTING
@@ -181,9 +288,10 @@ def skip(ctx, num, dir):
 # AREA EXECUTION ENGINE
 # --------------------------------------------------
 
-def area(ctx, num, dir, last_area):
+def area(ctx: GameContext, num, dir, last_area):
     side_path = False
     node = ctx.map.areas[num]
+    ctx.map.current_area = num
 
     # --------------------------------------------------
     # VISIT TRACKING
@@ -233,14 +341,16 @@ def area(ctx, num, dir, last_area):
         "first_time": first_time,
         "same_entries": same_entries,
         "side_path": side_path,
+        "entry_direction": dir,
     }
+    kwargs.update(node.get("kwargs", {}))
 
     direction, index = func(ctx, kwargs)
 
     # --------------------------------------------------
     # PAUSE HANDLING
     # --------------------------------------------------
-    if node not in random_encounters:
+    if "random_encounter" not in node.get("rules", []):
         press_enter_to_continue()
     elif ctx.map.random_encounter_triggered:
         ctx.map.random_encounter_triggered = False
@@ -249,7 +359,7 @@ def area(ctx, num, dir, last_area):
     # --------------------------------------------------
     # DIRECTION RESOLUTION
     # --------------------------------------------------
-    if node in branching_areas and direction == "forward" and index == 1:
+    if node["type"] == "branch" and direction == "forward" and index == 1:
         # side path ALWAYS treated as forward
         d = "forward"
     else:
