@@ -46,7 +46,6 @@ def draw_status(surface, entity, x, y):
     draw_text(surface, f"HP: {entity.hp}/{entity.max_hp}", x, y + 30)
     if hasattr(entity, 'mp'):
         draw_text(surface, f"MP: {entity.mp}/{entity.max_mp}", x, y + 60)
-    draw_text(surface, f"Def: {entity.defense}", x, y + 90)
 
 def damage_variance(damage):
     return random.randint(max(0, damage - 3), max(0, damage + 3))
@@ -79,11 +78,13 @@ class Button:
 
 
 class Entity:
-    def __init__(self, name, hp, attack, defense, moves, inventory):
+    def __init__(self, name, possessive, hp, attack, defense, moves, inventory):
         self.name = name
+        self.possessive = possessive
         self.hp = hp
         self.max_hp = hp
         self.attack = attack
+        self.attack_mod = 0
         self.defense = defense
         self.defense_mod = 0
         self.moves = moves
@@ -95,19 +96,40 @@ class Entity:
     def take_damage(self, dmg):
         self.hp = max(0, self.hp - dmg)
 
+    def restore_hp(self, val):
+        healed = min(self.max_hp, self.hp + val) - self.hp
+        self.hp += healed
+        return f"Restored {healed} HP."
+
+    def modify_attack(self, val):
+        self.attack = self.attack + val
+        self.attack_mod += val
+        return f"Attack {'decreased' if val < 0 else 'increased'} by {val}."
+
     def modify_defense(self, val):
         self.defense = self.defense + val
         self.defense_mod += val
-        return f"defense was {'lowered' if val < 0 else 'raised'} by {val}"
+        return f"Defense {'decreased' if val < 0 else 'increased'} by {val}."
 
 class Player(Entity):
     def __init__(self, name="Hero", hp=100, max_hp=100, attack=15, defense=5, magic=25, mp=30, max_mp=30, special="", moves=["Slash", "Heavy Strike"], inventory=["Potion","Potion","Power Boost"]):
-        super().__init__(name, hp, attack, defense, moves, inventory)
+        super().__init__(name, "Your", hp, attack, defense, moves, inventory)
         self.max_hp = max_hp
         self.magic = magic
+        self.magic_mod = 0
         self.mp = mp
         self.max_mp = max_mp
         self.special = special
+
+    def restore_mp(self, val):
+        healed = min(self.max_mp, self.mp + val) - self.mp
+        self.mp += healed
+        return f"Restored {healed} MP."
+
+    def modify_magic(self, val):
+        self.magic = self.magic + val
+        self.magic_mod += val
+        return f"{self.possessive} Magic {'decreased' if val < 0 else 'increased'} by {val}."
     
     def load_player_from_file(lineNum):
         with open(getCurrentDirectory() + "characters.csv", 'r') as f:
@@ -132,7 +154,13 @@ class Player(Entity):
         
 class Enemy(Entity):
     def __init__(self, name, hp, attack, defense, moves = ["Bite", "Scratch"], inventory = []):
-        super().__init__(name, hp, attack, defense, moves, inventory)
+        super().__init__(name, f"The {name}'s", hp, attack, defense, moves, inventory)
+
+class EffectContext:
+    def __init__(self, game, user, target=None):
+        self.game = game
+        self.user = user
+        self.target = target
 
 class BattleGame:
     def __init__(self):
@@ -172,11 +200,26 @@ class BattleGame:
             "Magic Up": {"mp": 20, "magic boost": 10, "hover": "+10 Magic"}
         }
         self.items = {
-            "Potion": {"heal": 30, "hover": "+30 HP"},
-            "Mana Potion": {"recover mana": 20, "hover": "+20 MP"},
-            "Power Boost": {"attack boost": 5, "hover": "+5 Attack"},
-            "Magic Boost": {"magic boost": 10, "hover": "+10 Magic"},
-            "Dragon's Bane": {"kill dragon": True, "hover": "Kills a dragon"}
+            "Potion": {
+                "func": lambda ctx: ctx.user.restore_hp(30),
+                "hover": "+30 HP"
+            },
+            "Mana Potion": {
+                "func": lambda ctx: ctx.user.restore_mp(20),
+                "hover": "+20 MP"
+            },
+            "Power Boost": {
+                "func": lambda ctx: ctx.user.modify_attack(5),
+                "hover": "+5 Attack"
+            },
+            "Magic Boost": {
+                "func": lambda ctx: ctx.user.modify_magic(10),
+                "hover": "+10 Magic"
+            },
+            "Dragon's Bane": {
+                "func": lambda ctx: ctx.game.kill_dragon(ctx),
+                "hover": "Kills a dragon"
+            }
         }
         self.battle_prep()
 
@@ -229,7 +272,7 @@ class BattleGame:
     def run_battle(self):
         self.restore_window()
         self.running = True
-
+        
         while self.running:
             screen.fill((0, 0, 0))
             self.handle_events()
@@ -329,8 +372,9 @@ class BattleGame:
             options.append(("Back", self.go_back, None))
             
         elif self.menu == "items":
+            ctx = EffectContext(self, self.player, self.enemy)
             items = list(set(self.player.inventory))
-            options = [(f"{item} x{self.player.inventory.count(item)}", lambda i=item: self.use_item(i), self.items[item]["hover"]) for item in items]
+            options = [(f"{item} x{self.player.inventory.count(item)}", lambda i=item: self.use_item(ctx, i), self.items[item]["hover"]) for item in items]
             options.append(("Back", self.go_back, None))
 
         elif self.menu == "special":
@@ -392,35 +436,20 @@ class BattleGame:
             self.turn = "enemy"
         self.make_buttons()
 
-    def use_item(self, item_name):
-        if item_name in self.player.inventory:
-            self.player.inventory.remove(item_name)
-            if "heal" in self.items[item_name]:
-                heal = self.items[item_name]["heal"]
-                healed = min(self.player.max_hp, self.player.hp + heal) - self.player.hp
-                self.player.hp = min(self.player.max_hp, self.player.hp + heal)
-                self.last_player_action = f"You used {'a' if item_name[0] not in ['a','e','i','o','u'] else 'an'} {item_name}! Restored {healed} HP."
-            elif "recover mana" in self.items[item_name]:
-                recover = self.items[item_name]["recover mana"]
-                recovered = min(self.player.max_mp, self.player.mp + recover) - self.player.mp
-                self.player.mp = min(self.player.max_mp, self.player.mp + recover)
-                self.last_player_action = f"You used {'a' if item_name[0] not in ['a','e','i','o','u'] else 'an'} {item_name}! Recovered {recovered} MP."
-            elif "attack boost" in self.items[item_name]:
-                self.player.attack += self.items[item_name]["attack boost"]
-                self.last_player_action = f"You used {'a' if item_name[0] not in ['a','e','i','o','u'] else 'an'} {item_name}! Attack increased."
-            elif "magic boost" in self.items[item_name]:
-                self.player.magic += self.items[item_name]["magic boost"]
-                self.last_player_action = f"You used {'a' if item_name[0] not in ['a','e','i','o','u'] else 'an'} {item_name}! Magic increased."
-            elif item_name == "Dragon's Bane":
-                if "Dragon" in self.enemy.name:
-                    self.enemy.hp = 0
-                    self.last_player_action = "You used the Dragon's Bane!"
-                    self.last_enemy_action = "The Dragon falls dead."
-                else:
-                    self.last_player_action = "You used the Dragon's Bane...but it did nothing."
+    def use_item(self, ctx, item_name):
+        if item_name not in ctx.user.inventory:
+            print("Item not in inventory:", item_name)
+            return
 
-            self.turn = "enemy"
-            self.make_buttons()
+        ctx.user.inventory.remove(item_name)
+
+        article = "an" if item_name[0].lower() in "aeiou" else "a"
+
+        result = self.items[item_name]["func"](ctx)
+        
+        self.last_player_action = f"You used {article} {item_name}! {result}"
+        self.turn = "enemy"
+        self.make_buttons()
 
     def render(self):
         if self.in_character_select:
@@ -534,15 +563,15 @@ class BattleGame:
         self.running = False
 
     def enemy_turn(self):
+        ctx = EffectContext(self, self.enemy, self.player)
         if self.sleep_duration:
             self.sleep_duration -= 1
             if self.sleep_duration == 0:
                 self.last_enemy_action == "The enemy has awoken."
         elif self.enemy.name == "Bandit" and self.enemy.hp < 20 and "Potion" in self.enemy.inventory:
             self.enemy.inventory.remove("Potion")
-            heal = 30
-            self.enemy.hp = min(self.enemy.max_hp, self.enemy.hp + heal)
-            self.last_enemy_action = f"{self.enemy.name} used a Potion! Restored {heal} HP."
+            result = self.items["Potion"]["func"](ctx)
+            self.last_enemy_action = f"{self.enemy.name} used a Potion! {result}"
         else:
             move_name = random.choice(self.enemy.moves)
 
@@ -588,9 +617,16 @@ class BattleGame:
         self.turn = "player"
         self.make_buttons()
 
+    def kill_dragon(self, ctx):
+        if ctx.target and "Dragon" in ctx.target.name:
+            ctx.target.hp = 0
+            ctx.game.last_enemy_action = "The Dragon falls dead."
+            return ""
+        return "But it had no effect."
+
 if __name__ == "__main__":
     game = BattleGame()
-    game.select_enemy("Goblin")
+    game.select_enemy("Bandit")
     game.run_battle()
     game.make_buttons()
     game.run_battle()
