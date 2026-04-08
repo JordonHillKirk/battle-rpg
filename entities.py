@@ -1,4 +1,7 @@
 
+import os
+
+
 class Entity:
     def __init__(self, name, possessive, hp, attack, defense, moves, inventory):
         self.name = name
@@ -16,7 +19,9 @@ class Entity:
         return self.hp > 0
 
     def take_damage(self, dmg):
-        self.hp = max(0, self.hp - dmg)
+        damage = max(1, dmg)
+        self.hp = max(0, self.hp - damage)
+        return f"It did {damage} damage."
 
     def restore_hp(self, val):
         healed = min(self.max_hp, self.hp + val) - self.hp
@@ -51,7 +56,7 @@ class Player(Entity):
     def modify_magic(self, val):
         self.magic = self.magic + val
         self.magic_mod += val
-        return f"{self.possessive} Magic {'decreased' if val < 0 else 'increased'} by {val}."
+        return f"Magic {'decreased' if val < 0 else 'increased'} by {val}."
     
     def load_player_from_file(lineNum):
         with open(getCurrentDirectory() + "characters.csv", 'r') as f:
@@ -77,3 +82,6 @@ class Player(Entity):
 class Enemy(Entity):
     def __init__(self, name, hp, attack, defense, moves = ["Bite", "Scratch"], inventory = []):
         super().__init__(name, f"The {name}'s", hp, attack, defense, moves, inventory)
+
+def getCurrentDirectory():
+    return os.path.dirname(os.path.realpath(__file__)) + "\\"
