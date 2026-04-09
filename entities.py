@@ -14,6 +14,8 @@ class Entity:
         self.defense_mod = 0
         self.moves = moves
         self.inventory = inventory
+        self.sleep_duration = 0
+        self.sheep_duration = 0
 
     def is_alive(self):
         return self.hp > 0
