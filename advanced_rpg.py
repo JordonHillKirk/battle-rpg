@@ -617,7 +617,7 @@ class BattleGame:
         user.rage_active = True
         return "You now take half damage."
     
-    def sheepda(self):
+    def sheepda(self, user):
         self.summon_sheep(3)
         return "You summon a flock of sheep that goes away in 3 turns."
     
@@ -625,7 +625,7 @@ class BattleGame:
         user.hp += user.max_hp
         return "You fortify your armor."
     
-    def sleep(self):
+    def sleep(self, target):
         self.sleep_duration = 3
         return "The enemy has fallen asleep."
 
