@@ -1,6 +1,7 @@
 # areas/merchants.py
 
 from core.area_utils import forward, press_enter_to_continue
+from core.game_context import GameContext
 from core.game_utils import (
     has_gold,
     give_gold,
@@ -26,6 +27,7 @@ def traveling_merchant(ctx, kwargs):
 
         if choice == "1":
             return shop(
+                ctx,
                 ("Potion", 5),
                 ("Power Boost", 10),
                 ("Dragon's Bane", 30),
@@ -43,7 +45,7 @@ def traveling_merchant(ctx, kwargs):
 # TRAVELING MERCHANT (MAGIC ITEMS)
 # --------------------------------------------------
 
-def traveling_merchant2(ctx, kwargs):
+def traveling_merchant2(ctx: GameContext, kwargs):
     while True:
         print("\nYou spot a traveling merchant on the side of the path.")
         print("They say they have helpful goods to sell.")
@@ -120,7 +122,7 @@ def shop(ctx, *items):
                 print(f"[You gained {article} {item_name}]")
 
                 give_gold(ctx, value)
-                get_item(item_name)
+                get_item(ctx, item_name)
 
             else:
                 print("You do not have enough gold for that item.")
