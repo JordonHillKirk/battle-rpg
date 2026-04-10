@@ -5,6 +5,8 @@ import random
 import sys
 import copy
 
+from entities import Enemy, Player
+
 def getCurrentDirectory():
     return os.path.dirname(os.path.realpath(__file__)) + "\\"
 
@@ -76,57 +78,11 @@ class Button:
     def check_hover(self, mouse_pos):
         self.hovered = self.rect.collidepoint(mouse_pos)
 
-
-class Entity:
-    def __init__(self, name, hp, attack, defense):
-        self.name = name
-        self.hp = hp
-        self.max_hp = hp
-        self.attack = attack
-        self.defense = defense
-
-    def is_alive(self):
-        return self.hp > 0
-
-    def take_damage(self, dmg):
-        self.hp = max(0, self.hp - dmg)
-
-class Player(Entity):
-    def __init__(self, name="Hero", hp=100, max_hp=100, attack=15, defense=5, magic=25, mp=30, max_mp=30, special="", inventory=["Potion","Potion","Power Boost"]):
-        super().__init__(name, hp, attack, defense)
-        self.max_hp = max_hp
-        self.magic = magic
-        self.mp = mp
-        self.max_mp = max_mp
-        self.special = special
-        self.inventory = inventory
-    
-    def load_player_from_file(lineNum):
-        with open(getCurrentDirectory() + "characters.csv", 'r') as f:
-            data = {}
-            lines = f.readlines()
-            header = lines[0]
-            line = lines[lineNum]
-            keys = header.split(";")
-            values = line.split(";")
-            for i in range(len(keys)):
-                key = keys[i].strip()
-                value = values[i].strip()
-                if key == "inventory":
-                    data[key] = value.split(',') if value.strip() != "" else []
-                    for i in range(len(data[key])):
-                        data[key][i] = data[key][i].strip()
-                elif key in ["hp", "max_hp", "attack", "defense", "magic", "mp", "max_mp"]:
-                    data[key] = int(value.strip())
-                else:
-                    data[key] = value.strip()
-            return data
-        
-class Enemy(Entity):
-    def __init__(self, name, hp, attack, defense, special_moves=None):
-        super().__init__(name, hp, attack, defense)
-        self.special_moves = special_moves or {}
-        self.inventory = []
+class EffectContext:
+    def __init__(self, game, user, target=None):
+        self.game = game
+        self.user = user
+        self.target = target
 
 class BattleGame:
     def __init__(self):
@@ -142,32 +98,118 @@ class BattleGame:
         self.selected_character = None
         self.in_character_select = True
 
-        bandit = Enemy("Bandit", 60, 14, 3)
-        bandit.inventory = ["Potion", "Potion", "Potion", "Potion", "Potion"]
         self.enemies = [
-            Enemy("Goblin", 50, 10, 2),
+            Enemy("Goblin", 50, 10, 2, ["Bite", "Scratch", "Surprise"]),
             Enemy("Orc", 80, 12, 4),
-            Enemy("Dragon", 150, 20, 8, {"Fire Breath": 25}),
-            Enemy("Elder Dragon", 300, 25, 10, {"Fire Breath": 30}),
-            bandit
+            Enemy("Dragon", 150, 20, 8, ["Bite", "Fire Breath"]),
+            Enemy("Elder Dragon", 300, 25, 10, ["Bite", "Greater Fire Breath"]),
+            Enemy("Bandit", 60, 14, 3, ["Slash"], ["Potion", "Potion", "Potion", "Potion", "Potion"])
         ]
 
         self.moves = {
-            "Slash": lambda atk: atk + 5,
-            "Heavy Slash": lambda atk: atk * 2 - 3
+            "Slash": {
+                "effect": ["damage"], 
+                "damage": lambda ctx: ctx.user.attack - ctx.target.defense + 5
+            },
+            "Heavy Strike": {
+                "effect": ["damage"], 
+                "damage": lambda ctx: (ctx.user.attack - ctx.target.defense) * 2 - 3
+            },
+            "Bite": {
+                "effect": ["damage"], 
+                "damage": lambda ctx: ctx.user.attack - ctx.target.defense + 2
+            },
+            "Scratch": {
+                "effect": ["damage"], 
+                "damage": lambda ctx: ctx.user.attack - ctx.target.defense - 2
+            },
+            "Fire Breath": {
+                "effect": ["damage"], 
+                "damage": lambda ctx: 25 - ctx.target.defense
+            },
+            "Greater Fire Breath": {
+                "effect": ["damage"], 
+                "damage": lambda ctx: 30 - ctx.target.defense
+            },
+            "Surprise": {
+                "effect": ["status"], 
+                "func": lambda ctx: ctx.target.modify_defense(-2)
+            }
         }
         self.spells = {
-            "Fireball": {"mp": 10, "damage": lambda magic: max(1, magic + 5), "hover": "Damage"},
-            "Ice Spike": {"mp": 8, "damage": lambda magic: max(1, magic - 5), "hover": "Damage"},
-            "Lambda": {"mp": 5, "effect": "summon_sheep", "hover": "Summon a sheep to defend you"},
-            "Magic Up": {"mp": 20, "magic boost": 10, "hover": "+10 Magic"}
+            "Fireball": {
+                "effect": ["damage"], 
+                "mp": 10, 
+                "damage": lambda ctx: ctx.user.magic - ctx.target.defense + 5, 
+                "hover": "Damage"
+            },
+            "Ice Spike": {
+                "effect": ["damage"], 
+                "mp": 8, 
+                "damage": lambda ctx: ctx.user.magic - ctx.target.defense - 5, 
+                "hover": "Damage"
+            },
+            "Lambda": {
+                "effect": ["status"], 
+                "mp": 5, 
+                "func": lambda ctx: ctx.game.summon_sheep(), 
+                "hover": "Summon a sheep to defend you"
+            },
+            "Magic Up": {
+                "effect": ["status"], 
+                "mp": 20, 
+                "func": lambda ctx: ctx.user.modify_magic(10), 
+                "hover": "+10 Magic"
+            }
         }
         self.items = {
-            "Potion": {"heal": 30, "hover": "+30 HP"},
-            "Mana Potion": {"recover mana": 20, "hover": "+20 MP"},
-            "Power Boost": {"attack boost": 5, "hover": "+5 Attack"},
-            "Magic Boost": {"magic boost": 10, "hover": "+10 Magic"},
-            "Dragon's Bane": {"kill dragon": True, "hover": "Kills a dragon"}
+            "Potion": {
+                "effect": ["status"],
+                "func": lambda ctx: ctx.user.restore_hp(30), 
+                "hover": "+30 HP"
+            },
+            "Mana Potion": {
+                "effect": ["status"],
+                "func": lambda ctx: ctx.user.restore_mp(20), 
+                "hover": "+20 MP"
+            },
+            "Power Boost": {
+                "effect": ["status"],
+                "func": lambda ctx: ctx.user.modify_attack(5), 
+                "hover": "+5 Attack"
+            },
+            "Magic Boost": {
+                "effect": ["status"],
+                "func": lambda ctx: ctx.user.modify_magic(10), 
+                "hover": "+10 Magic"
+            },
+            "Dragon's Bane": {
+                "effect": ["status"],
+                "func": lambda ctx: ctx.game.kill_dragon(ctx), 
+                "hover": "Kills a dragon"
+            }
+        }
+        self.specials = {
+            "Valor": {
+                "effect": ["status"],
+                "func": lambda ctx: ctx.game.valor(ctx.user)
+            },
+            "Rage": {
+                "effect": ["status"],
+                "func": lambda ctx: ctx.game.rage(ctx.user)
+            },
+            "Sheepda": {
+                "effect": ["status"],
+                "func": lambda ctx: ctx.game.sheepda(ctx.user)
+            },
+            "ArmorUp": {
+                "effect": ["status"],
+                "func": lambda ctx: ctx.game.armor_up(ctx.user)
+            },
+            "Sleep": {
+                "effect": ["status"],
+                "func": lambda ctx: ctx.game.sleep(ctx.target)
+            },
         }
         self.battle_prep()
 
@@ -218,9 +260,9 @@ class BattleGame:
                 pass
 
     def run_battle(self):
-        self.restore_window()   # show window again
+        self.restore_window()
         self.running = True
-
+        
         while self.running:
             screen.fill((0, 0, 0))
             self.handle_events()
@@ -251,7 +293,7 @@ class BattleGame:
     def select_character(self, character):
         self.player = Player(**Player.load_player_from_file(character))
         self.in_character_select = False
-        self.running = False   # ← NOW CORRECT
+        self.running = False
 
     def run_character_select(self):
         """
@@ -275,6 +317,7 @@ class BattleGame:
         return self.player
     
     def make_buttons(self):
+        ctx = EffectContext(self, self.player, self.enemy)
         self.buttons.clear()
         if self.turn != "player":
             return
@@ -291,33 +334,37 @@ class BattleGame:
 
         elif self.menu == "attack":
             options = []
-            for move in self.moves.keys():
-                base_damage = self.moves[move](self.player.attack - self.enemy.defense)
-                min_damage = max(0, base_damage - 3)
-                max_damage = max(0, base_damage + 3)
-                hover = f"Damage: {min_damage}-{max_damage}"
-                options.append((move, lambda m=move: self.select_move(m), hover))
+            for move_name in self.player.moves:
+                move = self.moves[move_name]
+                hover = ""
+                if "damage" in move["effect"]:
+                    base_damage = move["damage"](ctx)
+                    min_damage = max(0, base_damage - 3)
+                    max_damage = max(0, base_damage + 3)
+                    hover += f"Damage: {min_damage}-{max_damage}"
+                elif "status" in move["effect"]:
+                    hover += "status move"
+                options.append((move_name, lambda m=move_name: self.select_move(ctx, m), hover))
             options.append(("Back", self.go_back, None))
             
         elif self.menu == "spells":
             options = []
-            for spell in self.spells.keys():
-                spell_mp = self.spells[spell]["mp"]
-                hover = None
-                if "damage" in self.spells[spell]:
-                    base_damage = self.spells[spell]["damage"](self.player.magic - self.enemy.defense)
-                    min_damage = max(0, base_damage - 3)
-                    max_damage = max(0, base_damage + 3)
+            for spell_name in self.spells.keys():
+                spell = self.spells[spell_name]
+                spell_mp = spell["mp"]
+                hover = spell["hover"]
+                if "damage" in spell["effect"]:
+                    base_damage = spell["damage"](ctx)
+                    min_damage = max(1, base_damage - 3)
+                    max_damage = max(1, base_damage + 3)
                     hover = f"Damage: {min_damage}-{max_damage}"
-                else:
-                    hover = self.spells[spell]["hover"]
                 if self.player.mp >= spell_mp:
-                    options.append((f"{spell} ({spell_mp} MP)", lambda s=spell: self.cast_spell(s), hover))
+                    options.append((f"{spell_name} ({spell_mp} MP)", lambda s=spell_name: self.cast_spell(ctx, s), hover))
             options.append(("Back", self.go_back, None))
             
         elif self.menu == "items":
             items = list(set(self.player.inventory))
-            options = [(f"{item} x{self.player.inventory.count(item)}", lambda i=item: self.use_item(i), self.items[item]["hover"]) for item in items]
+            options = [(f"{item} x{self.player.inventory.count(item)}", lambda i=item: self.use_item(ctx, i), self.items[item]["hover"]) for item in items]
             options.append(("Back", self.go_back, None))
 
         elif self.menu == "special":
@@ -364,50 +411,49 @@ class BattleGame:
             self.turn = "enemy"
         self.make_buttons()
 
-    def select_move(self, move):
+    def select_move(self, ctx, move):
         self.selected_move = move
         self.action = "attack"
         self.make_buttons()
 
-    def cast_spell(self, spell_name):
+    def use_item(self, ctx, item_name):
+        if item_name not in ctx.user.inventory:
+            print("Item not in inventory:", item_name)
+            return
+
+        ctx.user.inventory.remove(item_name)
+
+        article = "an" if item_name[0].lower() in "aeiou" else "a"
+
+        result = self.items[item_name]["func"](ctx)
+        
+        self.last_player_action = f"You used {article} {item_name}! {result}"
+        self.turn = "enemy"
+        self.make_buttons()
+
+    def cast_spell(self, ctx, spell_name):
         spell = self.spells[spell_name]
         if self.player.mp >= spell["mp"]:
             self.selected_move = spell_name
             self.action = "spell"
+            ctx.user.mp -= spell["mp"]
         else:
             self.last_player_action = "Not enough MP!"
             self.turn = "enemy"
         self.make_buttons()
 
-    def use_item(self, item_name):
-        if item_name in self.player.inventory:
-            self.player.inventory.remove(item_name)
-            if "heal" in self.items[item_name]:
-                heal = self.items[item_name]["heal"]
-                healed = min(self.player.max_hp, self.player.hp + heal) - self.player.hp
-                self.player.hp = min(self.player.max_hp, self.player.hp + heal)
-                self.last_player_action = f"You used {'a' if item_name[0] not in ['a','e','i','o','u'] else 'an'} {item_name}! Restored {healed} HP."
-            elif "recover mana" in self.items[item_name]:
-                recover = self.items[item_name]["recover mana"]
-                recovered = min(self.player.max_mp, self.player.mp + recover) - self.player.mp
-                self.player.mp = min(self.player.max_mp, self.player.mp + recover)
-                self.last_player_action = f"You used {'a' if item_name[0] not in ['a','e','i','o','u'] else 'an'} {item_name}! Recovered {recovered} MP."
-            elif "attack boost" in self.items[item_name]:
-                self.player.attack += self.items[item_name]["attack boost"]
-                self.last_player_action = f"You used {'a' if item_name[0] not in ['a','e','i','o','u'] else 'an'} {item_name}! Attack increased."
-            elif "magic boost" in self.items[item_name]:
-                self.player.magic += self.items[item_name]["magic boost"]
-                self.last_player_action = f"You used {'a' if item_name[0] not in ['a','e','i','o','u'] else 'an'} {item_name}! Magic increased."
-            elif item_name == "Dragon's Bane":
-                if "Dragon" in self.enemy.name:
-                    self.enemy.hp = 0
-                    self.last_player_action = "You used the Dragon's Bane!"
-                    self.last_enemy_action = "The Dragon falls dead."
-                else:
-                    self.last_player_action = "You used the Dragon's Bane...but it did nothing."
-
-            self.turn = "enemy"
-            self.make_buttons()
+    def execute_ability(self, ability, ctx):
+        effects = ability["effect"]
+        result = ""
+        for effect in effects:
+            if effect == "damage":
+                result += self.do_damage(ctx.target, ability["damage"](ctx))
+                if ctx.target.sleep_duration:
+                    ctx.target.sleep_duration = 0
+                    self.last_enemy_action = "The enemy has awoken."
+            if effect == "status":
+                result += ability["func"](ctx)
+        return result
 
     def render(self):
         if self.in_character_select:
@@ -449,52 +495,24 @@ class BattleGame:
             return
 
         if self.turn == "player" and self.action:
+            ctx = EffectContext(self, self.player, self.enemy)
             self.last_player_action = ""
             self.last_enemy_action = ""
             self.victory_text = ""
             if self.action == "attack":
-                move_func = self.moves[self.selected_move]
-                damage = max(1, damage_variance(move_func(self.player.attack - self.enemy.defense)))
-                self.enemy.take_damage(damage)
-                if self.sleep_duration:
-                    self.sleep_duration = 0
-                    self.last_enemy_action = "The enemy has awoken."
-                self.last_player_action = f"You used {self.selected_move} for {damage} damage!"
+                move = self.moves[self.selected_move]
+                result = self.execute_ability(move, ctx)
+                self.last_player_action = f"You used {self.selected_move}! {result}"
             elif self.action == "spell":
                 spell = self.spells[self.selected_move]
-                self.player.mp -= spell["mp"]
-                if "damage" in spell:
-                    damage = max(1, damage_variance(spell["damage"](self.player.magic - self.enemy.defense)))
-                    self.enemy.take_damage(damage)
-                    if self.sleep_duration:
-                        self.sleep_duration = 0
-                        self.last_enemy_action = "The enemy has awoken."
-                    self.last_player_action = f"You cast {self.selected_move} for {damage} damage!"
-                elif "magic boost" in spell:
-                    self.player.magic += spell["magic boost"]
-                    self.last_player_action = f"You cast {self.selected_move} boosting Magic by {spell['magic boost']}."
-                elif spell.get("effect") == "summon_sheep":
-                    self.sheep_block_active = True
-                    self.sheep_block_duration = random.randint(1, 2)
-                    self.last_player_action = "You cast Lambda! A sheep blocks the next attack!"
+                result = self.execute_ability(spell, ctx)
+                self.last_player_action = f"You cast {self.selected_move}! {result}"
             elif self.action == "special":
+                special = self.specials[self.selected_move]
+                result = self.execute_ability(special, ctx)
                 self.last_player_action = f"You activated {self.selected_move}!"
-                if self.selected_move == "Valor":
-                    self.player.attack += 5
-                    self.player.defense += 5
-                    self.last_enemy_action = "Your Attack and Defense increase by 5."
-                elif self.selected_move == "Rage":
-                    self.last_enemy_action = "You now take half damage."
-                elif self.selected_move == "Sheepda":
-                    self.sheep_block_active = True
-                    self.sheep_block_duration = 3
-                    self.last_enemy_action = "You summon a flock of sheep that goes away in 3 turns."
-                elif self.selected_move == "ArmorUp":
-                    self.player.hp += self.player.max_hp
-                    self.last_enemy_action = "You fortify your armor."
-                elif self.selected_move == "Sleep":
-                    self.last_enemy_action = "The enemy has fallen asleep."
-                    self.sleep_duration = 3
+                self.last_enemy_action = result
+                
                 self.action = None
                 self.selected_move = None
                 self.set_menu("main")
@@ -521,40 +539,35 @@ class BattleGame:
         self.running = False
 
     def enemy_turn(self):
-        if self.sleep_duration:
-            self.sleep_duration -= 1
-            if self.sleep_duration == 0:
+        ctx = EffectContext(self, self.enemy, self.player)
+        if self.enemy.sleep_duration:
+            self.enemy.sleep_duration -= 1
+            if self.enemy.sleep_duration == 0:
                 self.last_enemy_action == "The enemy has awoken."
         elif self.enemy.name == "Bandit" and self.enemy.hp < 20 and "Potion" in self.enemy.inventory:
             self.enemy.inventory.remove("Potion")
-            heal = 30
-            self.enemy.hp = min(self.enemy.max_hp, self.enemy.hp + heal)
-            self.last_enemy_action = f"{self.enemy.name} used a Potion! Restored {heal} HP."
+            result = self.items["Potion"]["func"](ctx)
+            self.last_enemy_action = f"{self.enemy.name} used a Potion! {result}"
         else:
-            move = random.choice(["Bite", "Scratch"])
-            if "Dragon" in self.enemy.name:
-                move = random.choice(["Bite", "Fire Breath"])
-            power = self.enemy.attack + 2 if move == "Bite" else self.enemy.attack - 2
-            if move == "Fire Breath":
-                power = self.enemy.special_moves["Fire Breath"]
-
-            if self.sheep_block_active:
+            move_name = random.choice(self.enemy.moves)
+            if "status" in self.moves[move_name]["effect"]:
+                message = self.moves[move_name]["func"](ctx)
+                self.last_enemy_action = f"{self.enemy.name} used {move_name}! Your {message}!"
+            elif self.sheep_block_active:
                 self.last_enemy_action = f"{self.enemy.name}'s attack was blocked by the sheep!"
                 self.sheep_block_active = False
                 self.sheep_block_duration -= 1
-                if self.enemy.name == "Dragon" and move == "Bite":
+                if self.enemy.name == "Dragon" and move_name == "Bite":
                     self.sheep_eaten_count += 1
             elif self.sheep_block_duration > 0:
                 self.last_enemy_action = f"{self.enemy.name}'s attack was blocked by the sheep again!"
                 self.sheep_block_duration -= 1
-                if self.enemy.name == "Dragon" and move == "Bite":
+                if self.enemy.name == "Dragon" and move_name == "Bite":
                     self.sheep_eaten_count += 1
             else:
-                damage = max(1, damage_variance(power - self.player.defense))
-                if self.special_active and self.player.special == "Rage":
-                    damage = damage // 2
-                self.player.take_damage(damage)
-                self.last_enemy_action = f"{self.enemy.name} used {move}! You took {damage} damage!"
+                move = self.moves[move_name]
+                result = self.execute_ability(move, ctx)
+                self.last_enemy_action = f"{self.enemy.name} used {move_name}! {result}"
 
         if "Dragon" in self.enemy.name and self.sheep_eaten_count >= 20:
             self.victory_text = f"The {self.enemy.name} gets full from eating sheep and flies away!"
@@ -576,10 +589,51 @@ class BattleGame:
         self.turn = "player"
         self.make_buttons()
 
+    def do_damage(self, target, val):
+        damage = max(1, damage_variance(val))
+        return target.take_damage(damage)
+
+    def kill_dragon(self, ctx):
+        if ctx.target and "Dragon" in ctx.target.name:
+            ctx.target.hp = 0
+            ctx.game.last_enemy_action = "The Dragon falls dead."
+            return ""
+        return "But it had no effect."
+    
+    def summon_sheep(self, turns = 1):
+        self.sheep_block_active = True
+        if turns == 1:
+            self.sheep_block_duration = random.randint(turns, turns + 1)
+        else:
+            self.sheep_block_duration = turns
+        return "A sheep blocks the next attack!"
+    
+    def valor(self, user):
+        user.modify_attack(5)
+        user.modify_defense(5)
+        return "Attack and Defense increase by 5."
+    
+    def rage(self, user):
+        user.rage_active = True
+        return "You now take half damage."
+    
+    def sheepda(self, user):
+        self.summon_sheep(3)
+        return "You summon a flock of sheep that goes away in 3 turns."
+    
+    def armor_up(self, user):
+        user.hp += user.max_hp
+        return "You fortify your armor."
+    
+    def sleep(self, target):
+        self.sleep_duration = 3
+        return "The enemy has fallen asleep."
+
 if __name__ == "__main__":
     game = BattleGame()
-    game.select_enemy("Bandit")
+    game.select_enemy("Goblin")
     game.run_battle()
+    game.make_buttons()
     game.run_battle()
     pygame.quit()
     sys.exit()

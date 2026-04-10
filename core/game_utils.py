@@ -101,6 +101,9 @@ def rest(ctx: GameContext):
     heal_hp(ctx)
     heal_mp(ctx)
     print("Your HP and MP have been restored to full.")
+    message = restore_defense(ctx)
+    if message:
+        print("Your " + message + ".")
 
 
 def heal_hp(ctx: GameContext, val: int = None):
@@ -116,6 +119,11 @@ def heal_mp(ctx: GameContext, val: int = None):
     else:
         ctx.game.player.mp = ctx.game.player.max_mp
 
+
+def restore_defense(ctx) -> str:
+    if ctx.game.player.defense_mod < 0:
+        return ctx.game.player.modify_defense(-ctx.game.player.defense_mod)
+    return ""
 
 # --------------------------------------------------
 # PLAYER INITIALIZATION
