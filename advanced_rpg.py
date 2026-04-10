@@ -495,30 +495,7 @@ class BattleGame:
             return
 
         if self.turn == "player" and self.action:
-            ctx = EffectContext(self, self.player, self.enemy)
-            self.last_player_action = ""
-            self.last_enemy_action = ""
-            self.victory_text = ""
-            if self.action == "attack":
-                move = self.moves[self.selected_move]
-                result = self.execute_ability(move, ctx)
-                self.last_player_action = f"You used {self.selected_move}! {result}"
-            elif self.action == "spell":
-                spell = self.spells[self.selected_move]
-                result = self.execute_ability(spell, ctx)
-                self.last_player_action = f"You cast {self.selected_move}! {result}"
-            elif self.action == "special":
-                special = self.specials[self.selected_move]
-                result = self.execute_ability(special, ctx)
-                self.last_player_action = f"You activated {self.selected_move}!"
-                self.last_enemy_action = result
-                
-                self.action = None
-                self.selected_move = None
-                self.set_menu("main")
-                return
-            self.action = None
-            self.selected_move = None
+            self.player_turn()
             self.set_menu("")
             self.turn = "enemy"
         elif self.turn == "enemy" and self.enemy.is_alive():
@@ -537,6 +514,32 @@ class BattleGame:
 
     def quit_game(self):
         self.running = False
+
+    def player_turn(self):
+        ctx = EffectContext(self, self.player, self.enemy)
+        self.last_player_action = ""
+        self.last_enemy_action = ""
+        self.victory_text = ""
+        if self.action == "attack":
+            move = self.moves[self.selected_move]
+            result = self.execute_ability(move, ctx)
+            self.last_player_action = f"You used {self.selected_move}! {result}"
+        elif self.action == "spell":
+            spell = self.spells[self.selected_move]
+            result = self.execute_ability(spell, ctx)
+            self.last_player_action = f"You cast {self.selected_move}! {result}"
+        elif self.action == "special":
+            special = self.specials[self.selected_move]
+            result = self.execute_ability(special, ctx)
+            self.last_player_action = f"You activated {self.selected_move}!"
+            self.last_enemy_action = result
+            
+            self.action = None
+            self.selected_move = None
+            self.set_menu("main")
+            return
+        self.action = None
+        self.selected_move = None
 
     def enemy_turn(self):
         ctx = EffectContext(self, self.enemy, self.player)
