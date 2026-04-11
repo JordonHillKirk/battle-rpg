@@ -27,7 +27,7 @@ def restore_window():
 
 # Initialize Pygame
 pygame.init()
-screen = pygame.display.set_mode((800, 600))
+screen = pygame.display.set_mode((1000, 600))
 pygame.display.set_caption("Battle Game")
 font = pygame.font.SysFont("arial", 24)
 clock = pygame.time.Clock()
@@ -103,7 +103,8 @@ class BattleGame:
             Enemy("Orc", 80, 12, 4),
             Enemy("Dragon", 150, 20, 8, ["Bite", "Fire Breath"]),
             Enemy("Elder Dragon", 300, 25, 10, ["Bite", "Greater Fire Breath"]),
-            Enemy("Bandit", 60, 14, 3, ["Slash"], ["Potion", "Potion", "Potion", "Potion", "Potion"])
+            Enemy("Bandit", 60, 14, 3, ["Slash"], ["Potion", "Potion", "Potion", "Potion", "Potion"]),
+            Enemy("Shaman", 60, 14, 3, ["Slash", "Lambda"])
         ]
 
         self.moves = {
@@ -134,57 +135,85 @@ class BattleGame:
             "Surprise": {
                 "effect": ["status"], 
                 "func": lambda ctx: ctx.target.modify_defense(-2)
-            }
+            },
+            "Lambda": {
+                "effect": ["status"],
+                "func": lambda ctx: ctx.game.summon_sheep(ctx.user), 
+                "hover": "Summon a sheep to defend you"
+            },
         }
         self.spells = {
             "Fireball": {
                 "effect": ["damage"], 
-                "mp": 10, 
+                "cost": {
+                    "mp": 10, 
+                },
                 "damage": lambda ctx: ctx.user.magic - ctx.target.defense + 5, 
                 "hover": "Damage"
             },
             "Ice Spike": {
                 "effect": ["damage"], 
-                "mp": 8, 
+                "cost": {
+                    "mp": 8, 
+                },
                 "damage": lambda ctx: ctx.user.magic - ctx.target.defense - 5, 
                 "hover": "Damage"
             },
             "Lambda": {
                 "effect": ["status"], 
-                "mp": 5, 
-                "func": lambda ctx: ctx.game.summon_sheep(), 
+                "cost": {
+                    "mp": 5, 
+                }, 
+                "func": lambda ctx: ctx.game.summon_sheep(ctx.user), 
                 "hover": "Summon a sheep to defend you"
             },
             "Magic Up": {
                 "effect": ["status"], 
-                "mp": 20, 
+                "cost": {
+                    "mp": 20, 
+                },
                 "func": lambda ctx: ctx.user.modify_magic(10), 
                 "hover": "+10 Magic"
             }
         }
         self.items = {
             "Potion": {
-                "effect": ["status"],
+                "effect": ["status"], 
+                "cost": {
+                    "item": 1, 
+                },
                 "func": lambda ctx: ctx.user.restore_hp(30), 
                 "hover": "+30 HP"
             },
             "Mana Potion": {
                 "effect": ["status"],
+                "cost": {
+                    "item": 1, 
+                },
                 "func": lambda ctx: ctx.user.restore_mp(20), 
                 "hover": "+20 MP"
             },
             "Power Boost": {
                 "effect": ["status"],
+                "cost": {
+                    "item": 1, 
+                },
                 "func": lambda ctx: ctx.user.modify_attack(5), 
                 "hover": "+5 Attack"
             },
             "Magic Boost": {
                 "effect": ["status"],
+                "cost": {
+                    "item": 1, 
+                },
                 "func": lambda ctx: ctx.user.modify_magic(10), 
                 "hover": "+10 Magic"
             },
             "Dragon's Bane": {
                 "effect": ["status"],
+                "cost": {
+                    "item": 1,
+                },
                 "func": lambda ctx: ctx.game.kill_dragon(ctx), 
                 "hover": "Kills a dragon"
             }
@@ -211,6 +240,14 @@ class BattleGame:
                 "func": lambda ctx: ctx.game.sleep(ctx.target)
             },
         }
+
+        self.text_formatter = {
+            "attack": {"verb": "used"},
+            "item": {"verb": "used", "article": lambda name: "an " if name[0] in "aeiou" else "a "},
+            "spell": {"verb": "cast"},
+            "special": {"verb": "activated"}
+        }
+
         self.battle_prep()
 
     def battle_prep(self, e = None):
@@ -219,8 +256,6 @@ class BattleGame:
         self.selected_move = None
         self.menu = "main"
         self.menu_stack = []
-        self.sheep_block_active = False
-        self.sheep_block_duration = 0
         self.sheep_eaten_count = 0
         self.sleep_duration = 0
         self.select_enemy(e)
@@ -233,6 +268,8 @@ class BattleGame:
         self.special_turn_count = 0
         self.special_used = False
         self.ran_away = False
+        if hasattr(self.player, "sheep_duration") and self.player.sheep_duration:
+            self.player.first_sheep = True
 
     def select_enemy(self, e = None):
         self.enemy = random.choice(self.enemies)
@@ -351,7 +388,7 @@ class BattleGame:
             options = []
             for spell_name in self.spells.keys():
                 spell = self.spells[spell_name]
-                spell_mp = spell["mp"]
+                spell_mp = spell["cost"]["mp"]
                 hover = spell["hover"]
                 if "damage" in spell["effect"]:
                     base_damage = spell["damage"](ctx)
@@ -420,23 +457,15 @@ class BattleGame:
         if item_name not in ctx.user.inventory:
             print("Item not in inventory:", item_name)
             return
-
-        ctx.user.inventory.remove(item_name)
-
-        article = "an" if item_name[0].lower() in "aeiou" else "a"
-
-        result = self.items[item_name]["func"](ctx)
-        
-        self.last_player_action = f"You used {article} {item_name}! {result}"
-        self.turn = "enemy"
+        self.selected_move = item_name
+        self.action = "item"
         self.make_buttons()
 
     def cast_spell(self, ctx, spell_name):
         spell = self.spells[spell_name]
-        if self.player.mp >= spell["mp"]:
+        if self.player.mp >= spell["cost"]["mp"]:
             self.selected_move = spell_name
             self.action = "spell"
-            ctx.user.mp -= spell["mp"]
         else:
             self.last_player_action = "Not enough MP!"
             self.turn = "enemy"
@@ -445,6 +474,12 @@ class BattleGame:
     def execute_ability(self, ability, ctx):
         effects = ability["effect"]
         result = ""
+        cost = ability.get("cost", None)
+        if cost != None:
+            if "mp" in cost:
+                ctx.user.mp -= cost["mp"]
+            if "item" in cost:
+                ctx.user.inventory.remove(self.selected_move)
         for effect in effects:
             if effect == "damage":
                 result += self.do_damage(ctx.target, ability["damage"](ctx))
@@ -454,6 +489,16 @@ class BattleGame:
             if effect == "status":
                 result += ability["func"](ctx)
         return result
+
+    def get_ability(self):
+        if self.action == "attack":
+            return self.moves[self.selected_move]
+        elif self.action == "item":
+            return self.items[self.selected_move]
+        elif self.action == "spell":
+            return self.spells[self.selected_move]
+        elif self.action == "special":
+            return self.specials[self.selected_move]
 
     def render(self):
         if self.in_character_select:
@@ -468,8 +513,10 @@ class BattleGame:
             if self.special_active:
                 draw_text(screen, f"{self.player.special} is active", 50, y, (200, 255, 200))
                 y += 30
-            if self.sheep_block_duration:
+            if self.player.sheep_duration:
                 draw_text(screen, "Sheep will block next attack!", 50, y, (200, 255, 200))
+            if self.enemy.sheep_duration:
+                draw_text(screen, "Sheep will block next attack!", 500, y, (200, 255, 200))
             if self.last_player_action:
                 draw_text(screen, self.last_player_action, 300, 460)
             if self.last_enemy_action:
@@ -520,24 +567,25 @@ class BattleGame:
         self.last_player_action = ""
         self.last_enemy_action = ""
         self.victory_text = ""
-        if self.action == "attack":
-            move = self.moves[self.selected_move]
-            result = self.execute_ability(move, ctx)
-            self.last_player_action = f"You used {self.selected_move}! {result}"
-        elif self.action == "spell":
-            spell = self.spells[self.selected_move]
-            result = self.execute_ability(spell, ctx)
-            self.last_player_action = f"You cast {self.selected_move}! {result}"
-        elif self.action == "special":
-            special = self.specials[self.selected_move]
-            result = self.execute_ability(special, ctx)
-            self.last_player_action = f"You activated {self.selected_move}!"
+
+        ability = self.get_ability()
+        verb = self.text_formatter[self.action]["verb"]
+        article = self.text_formatter[self.action].get("article", "")
+        if article != "":
+            article = article(self.selected_move)
+
+        result = self.execute_ability(ability, ctx)
+
+        if self.action == "special":
+            self.last_player_action = f"You {verb} {self.selected_move}!"
             self.last_enemy_action = result
-            
             self.action = None
             self.selected_move = None
             self.set_menu("main")
             return
+        
+        self.last_player_action = f"You {verb} {article}{self.selected_move}! {result}"
+    
         self.action = None
         self.selected_move = None
 
@@ -555,18 +603,18 @@ class BattleGame:
             move_name = random.choice(self.enemy.moves)
             if "status" in self.moves[move_name]["effect"]:
                 message = self.moves[move_name]["func"](ctx)
-                self.last_enemy_action = f"{self.enemy.name} used {move_name}! Your {message}!"
-            elif self.sheep_block_active:
-                self.last_enemy_action = f"{self.enemy.name}'s attack was blocked by the sheep!"
-                self.sheep_block_active = False
-                self.sheep_block_duration -= 1
-                if self.enemy.name == "Dragon" and move_name == "Bite":
-                    self.sheep_eaten_count += 1
-            elif self.sheep_block_duration > 0:
-                self.last_enemy_action = f"{self.enemy.name}'s attack was blocked by the sheep again!"
-                self.sheep_block_duration -= 1
-                if self.enemy.name == "Dragon" and move_name == "Bite":
-                    self.sheep_eaten_count += 1
+                self.last_enemy_action = f"{self.enemy.name} used {move_name}! {message}!"
+            # elif self.sheep_block_active:
+            #     self.last_enemy_action = f"{self.enemy.name}'s attack was blocked by the sheep!"
+            #     self.sheep_block_active = False
+            #     self.sheep_block_duration -= 1
+            #     if self.enemy.name == "Dragon" and move_name == "Bite":
+            #         self.sheep_eaten_count += 1
+            # elif self.sheep_block_duration > 0:
+            #     self.last_enemy_action = f"{self.enemy.name}'s attack was blocked by the sheep again!"
+            #     self.sheep_block_duration -= 1
+            #     if self.enemy.name == "Dragon" and move_name == "Bite":
+            #         self.sheep_eaten_count += 1
             else:
                 move = self.moves[move_name]
                 result = self.execute_ability(move, ctx)
@@ -589,10 +637,22 @@ class BattleGame:
         pygame.display.flip()
         pygame.time.delay(1000)
         self.player.mp = min(self.player.max_mp, self.player.mp + 1)
+        if hasattr(self.player, "speedy_mp_recovery") and self.player.speedy_mp_recovery:
+            self.player.mp = min(self.player.max_mp, self.player.mp + 1)
         self.turn = "player"
         self.make_buttons()
 
     def do_damage(self, target, val):
+        if target.sheep_duration:
+            target.sheep_duration -= 1
+            result = f"But, a sheep blocked the attack"
+            if target.first_sheep:
+                target.first_sheep = False
+            else:
+                result += " again"
+            result += "."
+            return result
+            
         damage = max(1, damage_variance(val))
         return target.take_damage(damage)
 
@@ -603,12 +663,12 @@ class BattleGame:
             return ""
         return "But it had no effect."
     
-    def summon_sheep(self, turns = 1):
-        self.sheep_block_active = True
+    def summon_sheep(self, user, turns = 1):
+        user.first_sheep = True
         if turns == 1:
-            self.sheep_block_duration = random.randint(turns, turns + 1)
+            user.sheep_duration = random.randint(turns, turns + 1)
         else:
-            self.sheep_block_duration = turns
+            user.sheep_duration = turns
         return "A sheep blocks the next attack!"
     
     def valor(self, user):
@@ -621,7 +681,7 @@ class BattleGame:
         return "You now take half damage."
     
     def sheepda(self, user):
-        self.summon_sheep(3)
+        self.summon_sheep(user, 3)
         return "You summon a flock of sheep that goes away in 3 turns."
     
     def armor_up(self, user):
@@ -634,7 +694,7 @@ class BattleGame:
 
 if __name__ == "__main__":
     game = BattleGame()
-    game.select_enemy("Goblin")
+    game.select_enemy("Orc")
     game.run_battle()
     game.make_buttons()
     game.run_battle()

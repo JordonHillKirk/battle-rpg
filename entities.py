@@ -1,7 +1,6 @@
 
 import os
 
-
 class Entity:
     def __init__(self, name, possessive, hp, attack, defense, moves, inventory):
         self.name = name
@@ -16,6 +15,7 @@ class Entity:
         self.inventory = inventory
         self.sleep_duration = 0
         self.sheep_duration = 0
+        self.first_sheep = False
 
     def is_alive(self):
         return self.hp > 0
