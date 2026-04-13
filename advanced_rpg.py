@@ -246,8 +246,6 @@ class BattleGame:
         self.selected_move = None
         self.menu = "main"
         self.menu_stack = []
-        self.sheep_eaten_count = 0
-        self.sleep_duration = 0
         self.select_enemy(e)
         self.running = True
         self.last_player_action = ""
@@ -256,9 +254,10 @@ class BattleGame:
         self.buttons = []
         self.special_active = False
         self.special_turn_count = 0
-        self.special_used = False
         self.dragon_full = False
         self.ran_away = False
+        if hasattr(self.player, "special_used"):
+            self.player.special_used = False
         if hasattr(self.player, "sheep_duration") and self.player.sheep_duration:
             self.player.first_sheep = True
 
@@ -353,7 +352,7 @@ class BattleGame:
         spacing = 40
         if self.menu == "main":
             options = []
-            if self.player.hp <= self.player.max_hp / 2 and not self.special_used:
+            if self.player.hp <= self.player.max_hp / 2 and not self.player.special_used:
                 options.append(("Special", lambda: self.set_menu("special"), None))
             options.append(("Attack", lambda: self.set_menu("attack"), None))
             options.append(("Items", lambda: self.set_menu("items"), None))
@@ -420,10 +419,7 @@ class BattleGame:
         self.set_menu("main")
 
     def set_special(self):
-        if self.player.special != "ArmorUp" and self.player.special != "Sleep":
-            self.special_active = True
-            self.special_turn_count = 3
-        self.special_used = True
+        self.player.special_used = True
         self.action = "special"
         self.selected_move = self.player.special
         self.set_menu("main")
@@ -658,15 +654,15 @@ class BattleGame:
 
     def start_of_turn(self, entity):
         self.handle_regen(entity)
-        # if self.special_active:
-        #     self.special_turn_count -= 1
-        #     if self.special_turn_count <= 0:
-        #         self.special_active = False
-        #         if self.player.special != "ArmorUp":
-        #             self.victory_text = f"Your {self.player.special} ability has worn off."
-        #         if self.player.special == "Valor":
-        #             self.player.attack -= 5
-        #             self.player.defense -= 5
+        if self.special_active:
+            self.special_turn_count -= 1
+            if self.special_turn_count <= 0:
+                self.special_active = False
+                if self.player.special != "ArmorUp":
+                    self.victory_text = f"Your {self.player.special} ability has worn off."
+                if self.player.special == "Valor":
+                    self.player.attack -= 5
+                    self.player.defense -= 5
 
     def end_of_turn(self, entity):
         # self.apply_status_effects()
@@ -738,7 +734,7 @@ class BattleGame:
         return "You fortify your armor."
     
     def sleep(self, target):
-        self.sleep_duration = 3
+        self.target.sleep_duration = 3
         return "The enemy has fallen asleep."
 
 if __name__ == "__main__":
