@@ -21,6 +21,7 @@ class Entity:
         self.sleep_duration = 0
         self.sheep_duration = 0
         self.first_sheep = False
+        self.statuses = []
 
     def is_alive(self):
         return self.hp > 0
@@ -54,6 +55,15 @@ class Entity:
         self.magic = self.magic + val
         self.magic_mod += val
         return f"Magic {'decreased' if val < 0 else 'increased'} by {val}."
+
+    def get_status(self, name):
+        for s in self.statuses:
+            if s.name == name:
+                return s
+        return None
+    
+    def remove_status(self, name):
+        self.statuses = [s for s in self.statuses if s.name != name]
 
 class Player(Entity):
     def __init__(self, name="Hero", hp=100, max_hp=100, attack=15, defense=5, magic=25, mp=30, max_mp=30, special="", moves=["Slash", "Heavy Strike"], inventory=["Potion","Potion","Power Boost"], spells = []):

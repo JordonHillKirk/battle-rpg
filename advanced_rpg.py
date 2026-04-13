@@ -27,7 +27,7 @@ def restore_window():
 
 # Initialize Pygame
 pygame.init()
-screen = pygame.display.set_mode((1000, 600))
+screen = pygame.display.set_mode((800, 600))
 pygame.display.set_caption("Battle Game")
 font = pygame.font.SysFont("arial", 24)
 clock = pygame.time.Clock()
@@ -46,8 +46,13 @@ def draw_text(surface, text, x, y, color=(255,255,255)):
 def draw_status(surface, entity, x, y):
     draw_text(surface, f"{entity.name}", x, y)
     draw_text(surface, f"HP: {entity.hp}/{entity.max_hp}", x, y + 30)
-    if hasattr(entity, 'mp'):
+    if entity.max_mp > 0:
         draw_text(surface, f"MP: {entity.mp}/{entity.max_mp}", x, y + 60)
+    y += 60
+    for status in entity.statuses:
+        if status.data.get("display_text", None):
+            y += 30
+            draw_text(surface, status.data["display_text"], x, y, (200, 255, 200))
 
 def damage_variance(damage):
     return random.randint(max(0, damage - 3), max(0, damage + 3))
@@ -83,6 +88,20 @@ class EffectContext:
         self.game = game
         self.user = user
         self.target = target
+    
+class Status:
+    def __init__(self, name, duration, handlers = {}, data = {}):
+        self.name = name
+        self.duration = duration
+        self.handlers = handlers
+        self.data = data
+
+    def reduce_duration(self, val):
+        self.duration -= val
+        if self.duration <= 0:
+            if self.handlers.get("on_0_duration", None):
+                self.handlers["on_0_duration"]()
+
 
 class BattleGame:
     def __init__(self):
@@ -248,9 +267,6 @@ class BattleGame:
         self.menu_stack = []
         self.select_enemy(e)
         self.running = True
-        self.last_player_action = ""
-        self.last_enemy_action = ""
-        self.victory_text = ""
         self.buttons = []
         self.special_active = False
         self.special_turn_count = 0
@@ -260,6 +276,34 @@ class BattleGame:
             self.player.special_used = False
         if hasattr(self.player, "sheep_duration") and self.player.sheep_duration:
             self.player.first_sheep = True
+        self.combat_log = []
+        self.log_offset = 0  # for scrolling
+        self.max_log_lines = 4
+
+    def log(self, message):
+        self.combat_log.append(message)
+
+        # Optional: limit size
+        if len(self.combat_log) > 100:
+            self.combat_log.pop(0)
+
+        # Auto-scroll to bottom
+        self.log_offset = 0
+
+    def draw_combat_log(self, surface):
+        x = 300
+        y = 400
+        line_height = 30
+
+        visible_lines = self.max_log_lines
+        start = max(0, len(self.combat_log) - visible_lines - self.log_offset)
+        end = start + visible_lines
+
+        lines = self.combat_log[start:end]
+
+        for i, line in enumerate(lines):
+            text_surface = font.render(line, True, (255, 255, 255))
+            surface.blit(text_surface, (x, y + i * line_height))
 
     def select_enemy(self, e = None):
         self.enemy = random.choice(self.enemies)
@@ -301,8 +345,13 @@ class BattleGame:
         self.minimize_window()
 
     def handle_events(self):
-        mouse_pos = pygame.mouse.get_pos()  # <-- NEW
+        mouse_pos = pygame.mouse.get_pos()
         for event in pygame.event.get():
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                if event.button == 4:  # scroll up
+                    self.log_offset = min(self.log_offset + 1, len(self.combat_log))
+                elif event.button == 5:  # scroll down
+                    self.log_offset = max(self.log_offset - 1, 0)
             if event.type == pygame.QUIT:
                 self.running = False
             for button in self.buttons:
@@ -425,13 +474,14 @@ class BattleGame:
         self.set_menu("main")
 
     def try_escape(self):
-        self.last_enemy_action = ""
-        self.last_player_action = "You escaped!" if random.random() < 0.5 else "Failed to escape!"
-        if self.last_player_action == "You escaped!":
+        chance = .5
+        if random.random() < chance:
+            self.log("You escaped!")
             self.ran_away = True
             pygame.time.delay(1000)
             self.running = False
         else:
+            self.log("You failed to escape!")
             self.turn = "enemy"
         self.make_buttons()
 
@@ -454,7 +504,7 @@ class BattleGame:
             self.selected_move = spell_name
             self.action = "spell"
         else:
-            self.last_player_action = "Not enough MP!"
+            self.log("Not enough MP!")
             self.turn = "enemy"
         self.make_buttons()
 
@@ -466,13 +516,14 @@ class BattleGame:
 
         for effect in effects:
             if effect == "damage":
-                sheep_result = self.handle_sheep(ctx, ability_name)
+                ctx.ability_name = ability_name
+                sheep_result = self.handle_sheep(ctx)
                 if sheep_result:
                     return sheep_result
                 results.append(self.do_damage(ctx.target, ability["damage"](ctx)))
                 if ctx.target.sleep_duration:
                     ctx.target.sleep_duration = 0
-                    self.last_enemy_action = "The enemy has awoken."
+                    self.log("The enemy has awoken.")
             if effect in ["status", "heal"]:
                 results.append(ability["func"](ctx))
         return " ".join(results)
@@ -495,22 +546,23 @@ class BattleGame:
             draw_status(screen, self.player, 50, 50)
             draw_status(screen, self.enemy, 500, 50) 
 
-            y = 140
-            if self.sleep_duration:
-                draw_text(screen, "Asleep", 500, y, (200, 50, 50))
-            if self.special_active:
-                draw_text(screen, f"{self.player.special} is active", 50, y, (200, 255, 200))
-                y += 30
-            if self.player.sheep_duration:
-                draw_text(screen, "Sheep will block next attack!", 50, y, (200, 255, 200))
-            if self.enemy.sheep_duration:
-                draw_text(screen, "Sheep will block next attack!", 500, y, (200, 255, 200))
-            if self.last_player_action:
-                draw_text(screen, self.last_player_action, 300, 460)
-            if self.last_enemy_action:
-                draw_text(screen, self.last_enemy_action, 300, 490)
-            if self.victory_text:
-                draw_text(screen, self.victory_text, 300, 520)
+            self.draw_combat_log(screen)
+            # y = 140
+            # if self.sleep_duration:
+            #     draw_text(screen, "Asleep", 500, y, (200, 50, 50))
+            # if self.special_active:
+            #     draw_text(screen, f"{self.player.special} is active", 50, y, (200, 255, 200))
+            #     y += 30
+            # if self.player.sheep_duration:
+            #     draw_text(screen, "Sheep will block next attack!", 50, y, (200, 255, 200))
+            # if self.enemy.sheep_duration:
+            #     draw_text(screen, "Sheep will block next attack!", 500, y, (200, 255, 200))
+            # if self.last_player_action:
+            #     draw_text(screen, self.last_player_action, 300, 460)
+            # if self.last_enemy_action:
+            #     draw_text(screen, self.last_enemy_action, 300, 490)
+            # if self.victory_text:
+            #     draw_text(screen, self.victory_text, 300, 520)
 
         for button in self.buttons:
             button.draw(screen)
@@ -565,9 +617,6 @@ class BattleGame:
 
     def player_turn(self):
         ctx = EffectContext(self, self.player, self.enemy)
-        self.last_player_action = ""
-        self.last_enemy_action = ""
-        self.victory_text = ""
 
         ability = self.get_ability()
         verb = self.text_formatter[self.action]["verb"]
@@ -578,14 +627,14 @@ class BattleGame:
         result = self.execute_ability(ctx, ability, self.selected_move)
 
         if self.action == "special":
-            self.last_player_action = f"You {verb} {self.selected_move}!"
-            self.last_enemy_action = result
+            self.log(f"You {verb} {self.selected_move}!")
+            self.log(result)
             self.action = None
             self.selected_move = None
             self.set_menu("main")
             return
         
-        self.last_player_action = f"You {verb} {article}{self.selected_move}! {result}"
+        self.log(f"You {verb} {article}{self.selected_move}! {result}")
     
         self.action = None
         self.selected_move = None
@@ -595,16 +644,16 @@ class BattleGame:
         if self.enemy.sleep_duration:
             self.enemy.sleep_duration -= 1
             if self.enemy.sleep_duration == 0:
-                self.last_enemy_action == "The enemy has awoken."
+                self.log("The enemy has awoken.")
         elif self.enemy.hp < 20 and "Potion" in self.enemy.inventory:
             self.enemy.inventory.remove("Potion")
             result = self.abilities["Potion"]["func"](ctx)
-            self.last_enemy_action = f"{self.enemy.name} used a Potion! {result}"
+            self.log(f"{self.enemy.name} used a Potion! {result}")
         else:
             abilities = self.get_usable_enemy_abilities(self.enemy)
 
             if not abilities:
-                self.last_enemy_action = "The enemy hesitates..."
+                self.log("The enemy hesitates...")
                 return
 
             ability_type, ability_name = random.choice(abilities)
@@ -613,7 +662,7 @@ class BattleGame:
             result = self.execute_ability(ctx, ability, ability_name)
                 
             verb = self.text_formatter[ability_type]["verb"]
-            self.last_enemy_action = f"{self.enemy.name} {verb} {ability_name}! {result}"
+            self.log(f"{self.enemy.name} {verb} {ability_name}! {result}")
 
     def get_enemy_abilities(self, enemy):
         abilities = []
@@ -685,22 +734,26 @@ class BattleGame:
     def kill_dragon(self, ctx):
         if ctx.target and "Dragon" in ctx.target.name:
             ctx.target.hp = 0
-            ctx.game.last_enemy_action = "The Dragon falls dead."
+            ctx.game.log("The Dragon falls dead.")
             return ""
         return "But it had no effect."
     
     def summon_sheep(self, user, turns = 1):
-        user.first_sheep = True
         if turns == 1:
-            user.sheep_duration = random.randint(turns, turns + 1)
+            duration = random.randint(turns, turns + 1)
         else:
-            user.sheep_duration = turns
+            duration = turns
+        handlers = {"on_pre_damage": self.handle_sheep, "on_0_duration": lambda: self.log("It disappeared.")}
+        data = {"display_text": "Sheep will block next attack!", "first_sheep": True}
+        status = Status("Sheep", duration, handlers, data)
+        user.statuses.append(status)
         return "A sheep blocks the next attack!"
     
-    def handle_sheep(self, ctx, ability_name):
-        if ctx.target.sheep_duration:
-            ctx.target.sheep_duration -= 1
-            if hasattr(ctx.user, "species") and ctx.user.species == "Dragon" and ability_name == "Bite":
+    def handle_sheep(self, ctx):
+        status = ctx.target.get_status("Sheep")
+        if status != None:
+            status.reduce_duration(1)
+            if hasattr(ctx.user, "species") and ctx.user.species == "Dragon" and ctx.ability_name == "Bite":
                 result = f"{ctx.user.name} takes a bite of sheep."
                 if not hasattr(ctx.user, "sheep_eaten"):
                     ctx.user.sheep_eaten = 0
@@ -709,8 +762,8 @@ class BattleGame:
                     self.dragon_full = True
             else:
                 result = f"But, a sheep blocked the attack"
-                if ctx.target.first_sheep:
-                    ctx.target.first_sheep = False
+                if status.data["first_sheep"]:
+                    status.data["first_sheep"] = False
                 else:
                     result += " again"
                 result += "."
@@ -739,7 +792,7 @@ class BattleGame:
 
 if __name__ == "__main__":
     game = BattleGame()
-    game.select_enemy("Orc Shaman")
+    game.select_enemy("Goblin")
     game.run_battle()
     game.make_buttons()
     game.run_battle()
