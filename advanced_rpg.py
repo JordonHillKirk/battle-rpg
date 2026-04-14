@@ -279,6 +279,7 @@ class BattleGame:
         self.combat_log = []
         self.log_offset = 0  # for scrolling
         self.max_log_lines = 4
+        self.pending_logs = []
 
     def log(self, message):
         self.combat_log.append(message)
@@ -510,23 +511,27 @@ class BattleGame:
 
     def execute_ability(self, ctx, ability, ability_name):
         effects = ability["effect"]
-        results = []
         
         self.pay_ability_costs(ctx.user, ability, ability_name)
 
         for effect in effects:
             if effect == "damage":
                 ctx.ability_name = ability_name
-                sheep_result = self.handle_sheep(ctx)
-                if sheep_result:
-                    return sheep_result
-                results.append(self.do_damage(ctx.target, ability["damage"](ctx)))
+                
+                pre = self.apply_pre_damage(ctx)
+
+                if pre["blocked"]:
+                    return
+                
+                damage = ability["damage"](ctx)
+                self.log(self.do_damage(ctx.target, damage))
+
                 if ctx.target.sleep_duration:
                     ctx.target.sleep_duration = 0
                     self.log("The enemy has awoken.")
+
             if effect in ["status", "heal"]:
-                results.append(ability["func"](ctx))
-        return " ".join(results)
+                self.log(ability["func"](ctx))
 
     def get_ability(self):
         return self.abilities[self.selected_move]
@@ -547,22 +552,6 @@ class BattleGame:
             draw_status(screen, self.enemy, 500, 50) 
 
             self.draw_combat_log(screen)
-            # y = 140
-            # if self.sleep_duration:
-            #     draw_text(screen, "Asleep", 500, y, (200, 50, 50))
-            # if self.special_active:
-            #     draw_text(screen, f"{self.player.special} is active", 50, y, (200, 255, 200))
-            #     y += 30
-            # if self.player.sheep_duration:
-            #     draw_text(screen, "Sheep will block next attack!", 50, y, (200, 255, 200))
-            # if self.enemy.sheep_duration:
-            #     draw_text(screen, "Sheep will block next attack!", 500, y, (200, 255, 200))
-            # if self.last_player_action:
-            #     draw_text(screen, self.last_player_action, 300, 460)
-            # if self.last_enemy_action:
-            #     draw_text(screen, self.last_enemy_action, 300, 490)
-            # if self.victory_text:
-            #     draw_text(screen, self.victory_text, 300, 520)
 
         for button in self.buttons:
             button.draw(screen)
@@ -624,20 +613,14 @@ class BattleGame:
         if article != "":
             article = article(self.selected_move)
 
-        result = self.execute_ability(ctx, ability, self.selected_move)
+        self.log(f"You {verb} {article}{self.selected_move}!")
+        self.execute_ability(ctx, ability, self.selected_move)
+
+        self.action = ""
+        self.selected_move = ""
 
         if self.action == "special":
-            self.log(f"You {verb} {self.selected_move}!")
-            self.log(result)
-            self.action = None
-            self.selected_move = None
             self.set_menu("main")
-            return
-        
-        self.log(f"You {verb} {article}{self.selected_move}! {result}")
-    
-        self.action = None
-        self.selected_move = None
 
     def enemy_turn(self):
         ctx = EffectContext(self, self.enemy, self.player)
@@ -659,10 +642,10 @@ class BattleGame:
             ability_type, ability_name = random.choice(abilities)
             ability = self.abilities[ability_name]
 
+            verb = self.text_formatter[ability_type]["verb"] 
+            self.log(f"{self.enemy.name} {verb} {ability_name}!")
             result = self.execute_ability(ctx, ability, ability_name)
                 
-            verb = self.text_formatter[ability_type]["verb"]
-            self.log(f"{self.enemy.name} {verb} {ability_name}! {result}")
 
     def get_enemy_abilities(self, enemy):
         abilities = []
@@ -722,6 +705,27 @@ class BattleGame:
         pygame.display.flip()
         pygame.time.delay(1000)
 
+    def apply_pre_damage(self, ctx):
+        result = {
+            "blocked": False,
+            "end_battle": False
+        }
+
+        for status in list(ctx.target.statuses):  # copy for safe removal
+            handler = status.handlers.get("on_pre_damage")
+
+            if handler:
+                effect_result = handler(ctx, status)
+
+                if effect_result:
+                    result.update(effect_result)
+
+                # Stop early if blocked
+                if result["blocked"]:
+                    break
+
+        return result
+
     def handle_regen(self, entity): 
         entity.restore_mp(1)
         if getattr(entity, "speedy_mp_recovery", False):
@@ -743,31 +747,41 @@ class BattleGame:
             duration = random.randint(turns, turns + 1)
         else:
             duration = turns
-        handlers = {"on_pre_damage": self.handle_sheep, "on_0_duration": lambda: self.log("It disappeared.")}
-        data = {"display_text": "Sheep will block next attack!", "first_sheep": True}
+        handlers = {
+            "on_pre_damage": self.handle_sheep,
+            "on_0_duration": lambda: self.pending_logs.append("The sheep disappeared.")
+        }
+        data = {
+            "display_text": "Sheep will block next attack!",
+            "first_sheep": True
+        }
         status = Status("Sheep", duration, handlers, data)
         user.statuses.append(status)
-        return "A sheep blocks the next attack!"
+        self.log("A sheep blocks the next attack!")
     
-    def handle_sheep(self, ctx):
+    def sheep_pre_damage(self, ctx):
         status = ctx.target.get_status("Sheep")
         if status != None:
-            status.reduce_duration(1)
-            if hasattr(ctx.user, "species") and ctx.user.species == "Dragon" and ctx.ability_name == "Bite":
-                result = f"{ctx.user.name} takes a bite of sheep."
-                if not hasattr(ctx.user, "sheep_eaten"):
-                    ctx.user.sheep_eaten = 0
-                ctx.user.sheep_eaten += 1
-                if ctx.user.sheep_eaten >= 10:
-                    self.dragon_full = True
+            return False
+        
+        attacker = ctx.user
+        
+        if getattr(attacker, "species", None) == "Dragon" and ctx.ability_name == "Bite":
+            self.log(f"{attacker.name} takes a bite of sheep.")
+            attacker.sheep_eaten = getattr(attacker, "sheep_eaten", 0) + 1
+            if attacker.sheep_eaten >= 10:
+                self.dragon_full = True
+        else:
+            result = f"But, a sheep blocked the attack"
+            if status.data["first_sheep"]:
+                status.data["first_sheep"] = False
             else:
-                result = f"But, a sheep blocked the attack"
-                if status.data["first_sheep"]:
-                    status.data["first_sheep"] = False
-                else:
-                    result += " again"
-                result += "."
-            return result
+                result += " again"
+            result += "."
+            self.log(result)
+
+        status.reduce_duration(1)
+        return {"blocked": True}
 
     def valor(self, user):
         user.modify_attack(5)
@@ -786,9 +800,19 @@ class BattleGame:
         user.hp += user.max_hp
         return "You fortify your armor."
     
-    def sleep(self, target):
-        self.target.sleep_duration = 3
+    def sleep(self, target, turns = 1):
+        if turns == 1:
+            duration = random.randint(turns, turns + 1)
+        else:
+            duration = turns
+        handlers = {"on_turn_start": self.snooze, "on_0_duration": lambda: self.log(f"{target.name} woke up")}
+        data = {"display_text": "Sheep will block next attack!", "first_sheep": True}
+        status = Status("Sheep", duration, handlers, data)
+        target.statuses.append(status)
         return "The enemy has fallen asleep."
+    
+    def snooze(self, ctx):
+        status = ctx.user.get_status("Sleep")
 
 if __name__ == "__main__":
     game = BattleGame()
