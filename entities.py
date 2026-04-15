@@ -1,6 +1,8 @@
 
 import os
 
+from core.status import Status
+
 class Entity:
     def __init__(self, name, possessive, hp, attack, defense, magic, mp, moves, inventory, spells):
         self.name = name
@@ -62,6 +64,12 @@ class Entity:
                 return s
         return None
     
+    def add_status(self, status):
+        if not isinstance(status, Status):
+            raise TypeError(f"Expected Status, got {type(status)}")
+
+        self.statuses.append(status)
+
     def remove_status(self, name):
         self.statuses = [s for s in self.statuses if s.name != name]
 

@@ -5,6 +5,8 @@ import random
 import sys
 import copy
 
+from core.effect_context import EffectContext
+from core.status import Status
 from entities import Enemy, Player
 
 def getCurrentDirectory():
@@ -82,26 +84,6 @@ class Button:
     
     def check_hover(self, mouse_pos):
         self.hovered = self.rect.collidepoint(mouse_pos)
-
-class EffectContext:
-    def __init__(self, game, user, target=None):
-        self.game = game
-        self.user = user
-        self.target = target
-    
-class Status:
-    def __init__(self, name, duration, handlers = {}, data = {}):
-        self.name = name
-        self.duration = duration
-        self.handlers = handlers
-        self.data = data
-
-    def reduce_duration(self, val):
-        self.duration -= val
-        if self.duration <= 0:
-            if self.handlers.get("on_0_duration", None):
-                self.handlers["on_0_duration"]()
-
 
 class BattleGame:
     def __init__(self):
@@ -250,6 +232,22 @@ class BattleGame:
             },
         }
 
+        self.status_defs = {
+            "Sheep": lambda: Status(
+                "Sheep",
+                random.randint(1, 2),
+                {
+                    "on_pre_damage": self.sheep_pre_damage,
+                    "on_0_duration": lambda: self.pending_logs.append("The sheep disappeared.")
+                },
+                {
+                    "display_text": "Sheep will block next attack!",
+                    "first_sheep": True
+                }
+            ),
+            "Sleep": lambda: Status(...)
+        }
+
         self.text_formatter = {
             "attack": {"verb": "used"},
             "item": {"verb": "used", "article": lambda name: "an " if name[0] in "aeiou" else "a "},
@@ -282,7 +280,11 @@ class BattleGame:
         self.pending_logs = []
 
     def log(self, message):
+        if message == None:
+            return
+        
         self.combat_log.append(message)
+        print(message)
 
         # Optional: limit size
         if len(self.combat_log) > 100:
@@ -590,7 +592,7 @@ class BattleGame:
             self.end_battle()
         
         if hasattr(self, "dragon_full") and self.dragon_full:
-            self.victory_text = f"The {self.enemy.name} gets full from eating sheep and flies away!"
+            self.log(f"The {self.enemy.name} gets full from eating sheep and flies away!")
             self.end_battle()
 
     def end_battle(self):
@@ -736,34 +738,20 @@ class BattleGame:
         return target.take_damage(damage)
 
     def kill_dragon(self, ctx):
-        if ctx.target and "Dragon" in ctx.target.name:
+        if getattr(ctx.target, "species", None) == "Dragon":
             ctx.target.hp = 0
-            ctx.game.log("The Dragon falls dead.")
-            return ""
-        return "But it had no effect."
+            return "The Dragon falls dead."
+        else:
+            return "But it had no effect."
     
     def summon_sheep(self, user, turns = 1):
-        if turns == 1:
-            duration = random.randint(turns, turns + 1)
-        else:
-            duration = turns
-        handlers = {
-            "on_pre_damage": self.handle_sheep,
-            "on_0_duration": lambda: self.pending_logs.append("The sheep disappeared.")
-        }
-        data = {
-            "display_text": "Sheep will block next attack!",
-            "first_sheep": True
-        }
-        status = Status("Sheep", duration, handlers, data)
+        status = self.status_defs["Sheep"]()
+        if turns != 1:
+            status.duration = turns
         user.statuses.append(status)
-        self.log("A sheep blocks the next attack!")
+        return "A sheep blocks the next attack!"
     
-    def sheep_pre_damage(self, ctx):
-        status = ctx.target.get_status("Sheep")
-        if status != None:
-            return False
-        
+    def sheep_pre_damage(self, ctx, status):
         attacker = ctx.user
         
         if getattr(attacker, "species", None) == "Dragon" and ctx.ability_name == "Bite":
