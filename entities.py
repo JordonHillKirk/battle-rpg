@@ -4,9 +4,9 @@ import os
 from core.status import Status
 
 class Entity:
-    def __init__(self, name, possessive, hp, attack, defense, magic, mp, moves, inventory, spells):
+    def __init__(self, name, pronouns, hp, attack, defense, magic, mp, moves, inventory, spells):
         self.name = name
-        self.possessive = possessive
+        self.pronouns = pronouns
         self.hp = hp
         self.max_hp = hp
         self.attack = attack
@@ -20,9 +20,8 @@ class Entity:
         self.moves = moves
         self.inventory = inventory
         self.spells = spells
+        self.special_used = False
         self.sleep_duration = 0
-        self.sheep_duration = 0
-        self.first_sheep = False
         self.statuses = []
 
     def is_alive(self):
@@ -36,27 +35,27 @@ class Entity:
     def restore_hp(self, val):
         healed = min(self.max_hp, self.hp + val) - self.hp
         self.hp += healed
-        return f"Restored {healed} HP."
+        return f"{self.pronouns["subject"]} restored {healed} HP."
 
     def restore_mp(self, val):
         healed = min(self.max_mp, self.mp + val) - self.mp
         self.mp += healed
-        return f"Restored {healed} MP."
+        return f"{self.pronouns["subject"]} restored {healed} MP."
 
     def modify_attack(self, val):
         self.attack = self.attack + val
         self.attack_mod += val
-        return f"Attack {'decreased' if val < 0 else 'increased'} by {val}."
+        return f"{self.pronouns["subject"]} Attack {'decreased' if val < 0 else 'increased'} by {val}."
 
     def modify_defense(self, val):
         self.defense = self.defense + val
         self.defense_mod += val
-        return f"Defense {'decreased' if val < 0 else 'increased'} by {val}."
+        return f"{self.pronouns["subject"]} Defense {'decreased' if val < 0 else 'increased'} by {val}."
     
     def modify_magic(self, val):
         self.magic = self.magic + val
         self.magic_mod += val
-        return f"Magic {'decreased' if val < 0 else 'increased'} by {val}."
+        return f"{self.pronouns["subject"]} Magic {'decreased' if val < 0 else 'increased'} by {val}."
 
     def get_status(self, name):
         for s in self.statuses:
@@ -75,7 +74,7 @@ class Entity:
 
 class Player(Entity):
     def __init__(self, name="Hero", hp=100, max_hp=100, attack=15, defense=5, magic=25, mp=30, max_mp=30, special="", moves=["Slash", "Heavy Strike"], inventory=["Potion","Potion","Power Boost"], spells = []):
-        super().__init__(name, "Your", max_hp, attack, defense, magic, max_mp, moves, inventory, spells)
+        super().__init__(name, {"subject": "You", "object": "you", "possessive": "Your"}, max_hp, attack, defense, magic, max_mp, moves, inventory, spells)
         self.hp = hp
         self.mp = mp
         self.special = special
@@ -103,7 +102,7 @@ class Player(Entity):
         
 class Enemy(Entity):
     def __init__(self, name, species, hp, attack, defense, magic = 0, mp = 0, moves = ["Scratch"], inventory = [], spells = []):
-        super().__init__(name, f"Their", hp, attack, defense, magic, mp, moves, inventory, spells)
+        super().__init__(name, {"subject": "They", "object": "them", "possessive": "Their"}, hp, attack, defense, magic, mp, moves, inventory, spells)
         self.species = species
 
 def getCurrentDirectory():
