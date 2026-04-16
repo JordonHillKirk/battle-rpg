@@ -5,9 +5,9 @@ class Status:
         self.handlers = handlers or {}
         self.data = data or {}
 
-    def reduce_duration(self, val):
+    def reduce_duration(self, ctx, val = 1):
         self.duration -= val
         if self.duration <= 0:
             handler = self.handlers.get("on_0_duration")
             if handler:
-                handler()
+                handler(ctx)

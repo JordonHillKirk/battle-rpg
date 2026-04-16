@@ -235,17 +235,29 @@ class BattleGame:
         self.status_defs = {
             "Sheep": lambda: Status(
                 "Sheep",
-                3, #random.randint(1, 2),
+                random.randint(1, 2),
                 {
                     "on_pre_damage": self.sheep_pre_damage,
-                    "on_0_duration": lambda: self.log("    The sheep disappeared.")
+                    "on_0_duration": lambda ctx: self.log("    The sheep disappeared.")
                 },
                 {
                     "display_text": "Sheep will block next attack!",
                     "first_sheep": True
                 }
             ),
-            "Sleep": lambda: Status(...)
+            "Sleep": lambda: Status(
+                "Sleep",
+                3,
+                {
+                    "on_turn_start": self.sleep_turn_start,
+                    "on_post_damage": self.sleep_post_damage,
+                    "on_0_duration": lambda ctx: self.log(f"    {ctx.user.name} woke up!")
+                },
+                {
+                    "display_text": "Asleep",
+                    "first_sheep": True
+                }
+            ),
         }
 
         self.text_formatter = {
@@ -511,28 +523,29 @@ class BattleGame:
         self.make_buttons()
 
     def execute_ability(self, ctx, ability, ability_name):
-        effects = ability["effect"]
-        
         self.pay_ability_costs(ctx.user, ability, ability_name)
 
-        for effect in effects:
-            if effect == "damage":
-                ctx.ability_name = ability_name
-                
-                pre = self.apply_pre_damage(ctx)
+        if "damage" in ability:
+            ctx.ability_name = ability_name
+            
+            pre = self.apply_status_event(ctx, ctx.target, "on_pre_damage")
 
-                if pre["blocked"]:
-                    return
-                
-                damage = ability["damage"](ctx)
-                self.log(f"    {self.do_damage(ctx.target, damage)}")
+            if pre["blocked"]:
+                return
+            
+            damage = ability["damage"](ctx)
+            self.log(f"    {self.do_damage(ctx.target, damage)}")
 
-                if ctx.target.sleep_duration:
-                    ctx.target.sleep_duration = 0
-                    self.log("The enemy has awoken.")
+            # Attacker post-damage
+            attacker_ctx = EffectContext(self, ctx.user, ctx.target)
+            self.apply_status_event(attacker_ctx, ctx.user, "on_post_damage")
 
-            if effect in ["status", "heal"]:
-                self.log(f"    {ability["func"](ctx)}")
+            # Defender post-damage
+            defender_ctx = EffectContext(self, ctx.target, ctx.user)
+            self.apply_status_event(defender_ctx, ctx.target, "on_post_damage")
+
+        if "func" in ability:
+            self.log(f"    {ability["func"](ctx)}")
 
     def get_ability(self):
         return self.abilities[self.selected_move]
@@ -601,14 +614,17 @@ class BattleGame:
     def quit_game(self):
         self.running = False
 
-    def change_turn(self, p):
+    def change_turn(self, ctx, p):
+        ctx.user, ctx.target = ctx.target, ctx.user
+        can_act = self.start_of_turn(ctx)
+
+        if not can_act:
+            return
+
         self.turn = p
-        self.start_of_turn(getattr(self, p, "error"))
 
     def player_turn(self):
         ctx = EffectContext(self, self.player, self.enemy)
-
-        # self.start_of_turn(self.player)
 
         ability = self.get_ability()
         verb = self.text_formatter[self.action]["verb"]
@@ -626,18 +642,17 @@ class BattleGame:
             self.set_menu("main")
             return
         
-        self.end_of_turn(self.player)
+        self.end_of_turn(ctx)
 
     def enemy_turn(self):
         ctx = EffectContext(self, self.enemy, self.player)
 
-        # self.start_of_turn(self.enemy)
+        if getattr(self, "skip_turn", None):
+            self.skip_turn = False
+            self.end_of_turn(self.enemy)
+            return
 
-        if self.enemy.sleep_duration:
-            self.enemy.sleep_duration -= 1
-            if self.enemy.sleep_duration == 0:
-                self.log("The enemy has awoken.")
-        elif self.enemy.hp < 20 and "Potion" in self.enemy.inventory:
+        if self.enemy.hp < 20 and "Potion" in self.enemy.inventory:
             self.enemy.inventory.remove("Potion")
             result = self.abilities["Potion"]["func"](ctx)
             self.log(f"{self.enemy.name} used a Potion! {result}")
@@ -655,7 +670,7 @@ class BattleGame:
             self.log(f"{self.enemy.name} {verb} {ability_name}!")
             result = self.execute_ability(ctx, ability, ability_name)
 
-        self.end_of_turn(self.enemy)
+        self.end_of_turn(ctx)
                 
 
     def get_enemy_abilities(self, enemy):
@@ -695,8 +710,10 @@ class BattleGame:
             
         return usable
 
-    def start_of_turn(self, entity):
-        self.handle_regen(entity)
+    def start_of_turn(self, ctx):
+        print("Start of turn")
+        start = self.apply_status_event(ctx, ctx.user, "on_turn_start")
+        self.handle_regen(ctx.user)
         if self.special_active:
             self.special_turn_count -= 1
             if self.special_turn_count <= 0:
@@ -706,46 +723,141 @@ class BattleGame:
                 if self.player.special == "Valor":
                     self.player.attack -= 5
                     self.player.defense -= 5
+        return not start["skip_turn"]
 
-    def end_of_turn(self, entity):
-        # self.apply_status_effects()
-        # self.tick_durations()
-        self.cleanup_statuses(entity)
-        if entity == self.player:
+    def end_of_turn(self, ctx):
+        print("End of turn")
+        end = self.apply_status_event(ctx, ctx.user, "on_turn_end")
+        self.cleanup_statuses(ctx.user)
+        if ctx.user == self.player:
             self.set_menu("")
-            self.change_turn("enemy")
+            self.change_turn(ctx, "enemy")
         else:
-            self.change_turn("player")
+            self.change_turn(ctx, "player")
             self.set_menu("main")
 
     def end_of_round(self):
         pygame.display.flip()
         pygame.time.delay(1000)
 
-    def apply_pre_damage(self, ctx):
+    def apply_status_event(self, ctx, entity, event):
         result = {
             "blocked": False,
-            "end_battle": False
+            "skip_turn": False,
+            "end_battle": False,
+            "damage_multiplier": 1.0
         }
 
-        for status in list(ctx.target.statuses):  # copy for safe removal
-            if status.duration == 0:
+        for status in list(entity.statuses):
+            handler = status.handlers.get(event)
+            if not handler:
                 continue
 
-            handler = status.handlers.get("on_pre_damage")
+            r = handler(ctx, status)
 
-            if handler:
-                effect_result = handler(ctx, status)
+            if not r:
+                continue
 
-                if effect_result:
-                    result.update(effect_result)
+            # Merge booleans (OR logic)
+            if r.get("blocked"):
+                result["blocked"] = True
+            if r.get("skip_turn"):
+                result["skip_turn"] = True
+            if r.get("end_battle"):
+                result["end_battle"] = True
 
-                # Stop early if blocked
-                if result["blocked"]:
-                    break
+            # Combine modifiers
+            if "damage_multiplier" in r:
+                result["damage_multiplier"] *= r["damage_multiplier"]
+
+            # 🔥 Early exit for hard stops
+            if result["blocked"] or result["skip_turn"] or result["end_battle"]:
+                break
 
         return result
+    
+    # def apply_turn_start(self, ctx):
+    #     result = {
+    #         "skip_turn": False,
+    #         "end_battle": False
+    #     }
 
+    #     for status in list(ctx.user.statuses):
+    #         if status.duration == 0:
+    #             continue
+
+    #         handler = status.handlers.get("on_turn_start")
+
+    #         if handler:
+    #             effect_result = handler(ctx, status)
+
+    #             if effect_result:
+    #                 result.update(effect_result)
+
+    #     return result
+
+    # def apply_pre_damage(self, ctx):
+    #     result = {
+    #         "blocked": False,
+    #         "end_battle": False
+    #     }
+
+    #     for status in list(ctx.target.statuses):  # copy for safe removal
+    #         if status.duration == 0:
+    #             continue
+
+    #         handler = status.handlers.get("on_pre_damage")
+
+    #         if handler:
+    #             effect_result = handler(ctx, status)
+
+    #             if effect_result:
+    #                 result.update(effect_result)
+
+    #             # Stop early if blocked
+    #             if result["blocked"]:
+    #                 break
+
+    #     return result
+
+    # def apply_post_damage(self, ctx):
+    #     result = {
+    #         "end_battle": False
+    #     }
+
+    #     for status in list(ctx.target.statuses):  # copy for safe removal
+    #         if status.duration == 0:
+    #             continue
+
+    #         handler = status.handlers.get("on_post_damage")
+
+    #         if handler:
+    #             effect_result = handler(ctx, status)
+
+    #             if effect_result:
+    #                 result.update(effect_result)
+
+    #     return result
+
+    # def apply_turn_end(self, ctx):
+    #     result = {
+    #         "end_battle": False
+    #     }
+
+    #     for status in list(ctx.user.statuses):
+    #         if status.duration == 0:
+    #             continue
+
+    #         handler = status.handlers.get("on_turn_end")
+
+    #         if handler:
+    #             effect_result = handler(ctx, status)
+
+    #             if effect_result:
+    #                 result.update(effect_result)
+
+    #     return result
+    
     def cleanup_statuses(self, entity):
         entity.statuses = [s for s in entity.statuses if s.duration > 0]
 
@@ -795,8 +907,19 @@ class BattleGame:
             result += "."
             self.log(result)
 
-        status.reduce_duration(1)
+        status.reduce_duration(ctx)
         return {"blocked": True}
+    
+    def sleep_turn_start(self, ctx, status):
+        self.log(f"{ctx.user.name} is asleep!")
+
+        status.reduce_duration(ctx)
+
+        return {"skip_turn": True}
+
+    def sleep_post_damage(self, ctx, status):
+        status.reduce_duration(ctx, status.duration)
+        ctx.target.remove_status(status.name)
 
     def valor(self, user):
         user.modify_attack(5)
@@ -816,18 +939,16 @@ class BattleGame:
         return "You fortify your armor."
     
     def sleep(self, target, turns = 1):
-        if turns == 1:
-            duration = random.randint(turns, turns + 1)
+        template = self.status_defs["Sleep"]()
+        status = target.get_status("Sleep")
+        if status != None:
+            status.duration = template.duration
         else:
-            duration = turns
-        handlers = {"on_turn_start": self.snooze, "on_0_duration": lambda: self.log(f"{target.name} woke up")}
-        data = {"display_text": "Sheep will block next attack!", "first_sheep": True}
-        status = Status("Sheep", duration, handlers, data)
-        target.statuses.append(status)
-        return "The enemy has fallen asleep."
-    
-    def snooze(self, ctx):
-        status = ctx.user.get_status("Sleep")
+            status = template
+            if turns != 0:
+                status.duration = turns
+            target.statuses.append(status)
+        return f"   {target.name} has fallen asleep."
 
 if __name__ == "__main__":
     game = BattleGame()
