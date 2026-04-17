@@ -45,17 +45,17 @@ class Entity:
     def modify_attack(self, val):
         self.attack = self.attack + val
         self.attack_mod += val
-        return f"{self.pronouns["subject"]} Attack {'decreased' if val < 0 else 'increased'} by {val}."
+        return f"{self.pronouns["possessive"]} Attack {'decreased' if val < 0 else 'increased'} by {val}."
 
     def modify_defense(self, val):
         self.defense = self.defense + val
         self.defense_mod += val
-        return f"{self.pronouns["subject"]} Defense {'decreased' if val < 0 else 'increased'} by {val}."
+        return f"{self.pronouns["possessive"]} Defense {'decreased' if val < 0 else 'increased'} by {val}."
     
     def modify_magic(self, val):
         self.magic = self.magic + val
         self.magic_mod += val
-        return f"{self.pronouns["subject"]} Magic {'decreased' if val < 0 else 'increased'} by {val}."
+        return f"{self.pronouns["possessive"]} Magic {'decreased' if val < 0 else 'increased'} by {val}."
 
     def get_status(self, name):
         for s in self.statuses:

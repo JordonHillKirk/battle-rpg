@@ -1,3 +1,4 @@
+from math import floor
 import os
 import platform
 import pygame
@@ -230,32 +231,63 @@ class BattleGame:
                 "effect": ["status"],
                 "func": lambda ctx: ctx.game.sleep(ctx.target)
             },
+            "Pass": {
+                "effect": ["status"],
+                "func": lambda ctx: "It did nothing"
+            },
         }
 
         self.status_defs = {
-            "Sheep": lambda: Status(
+            "Rage": lambda duration = 3: Status(
+                "Rage",
+                duration,
+                {
+                    "on_apply": self.rage_apply,
+                    "on_turn_start": self.tick_status,
+                    "on_pre_damage": self.rage_pre_damage,
+                    "on_0_duration": lambda ctx, status: self.log(f"{ctx.user.name} calmed down!")
+                },
+                {
+                    "display_text": "Rage"
+                }
+            ),
+            "Sheep": lambda duration = 0: Status(
                 "Sheep",
-                random.randint(1, 2),
+                duration or random.randint(1, 2),
                 {
                     "on_pre_damage": self.sheep_pre_damage,
-                    "on_0_duration": lambda ctx: self.log("    The sheep disappeared.")
+                    "on_0_duration": lambda ctx, status: self.log("    The sheep disappeared.")
                 },
                 {
                     "display_text": "Sheep will block next attack!",
                     "first_sheep": True
                 }
             ),
-            "Sleep": lambda: Status(
+            "Sleep": lambda duration = 3: Status(
                 "Sleep",
-                3,
+                duration,
                 {
                     "on_turn_start": self.sleep_turn_start,
                     "on_post_damage": self.sleep_post_damage,
-                    "on_0_duration": lambda ctx: self.log(f"    {ctx.user.name} woke up!")
+                    "on_0_duration": lambda ctx, status: self.log(f"    {ctx.user.name} woke up!")
                 },
                 {
                     "display_text": "Asleep",
                     "first_sheep": True
+                }
+            ),
+            "Valor": lambda duration = 3: Status(
+                "Valor",
+                duration,
+                {
+                    "on_apply": self.valor_apply,
+                    "on_turn_start": self.tick_status,
+                    "on_0_duration": self.valor_end
+                },
+                {
+                    "display_text": "Valor",
+                    "attack": 10,
+                    "defense": 10
                 }
             ),
         }
@@ -278,8 +310,8 @@ class BattleGame:
         self.select_enemy(e)
         self.running = True
         self.buttons = []
-        self.special_active = False
-        self.special_turn_count = 0
+        # self.special_active = False
+        # self.special_turn_count = 0
         self.dragon_full = False
         self.ran_away = False
         self.battle_over = False
@@ -349,6 +381,7 @@ class BattleGame:
     def run_battle(self):
         self.restore_window()
         self.running = True
+
         
         while self.running:
             screen.fill((0, 0, 0))
@@ -535,6 +568,7 @@ class BattleGame:
                 return
             
             damage = ability["damage"](ctx)
+            damage = floor(damage * pre["damage_multiplier"])
             self.log(f"    {self.do_damage(ctx.target, damage)}")
 
             # Attacker post-damage
@@ -546,7 +580,9 @@ class BattleGame:
             self.apply_status_event(defender_ctx, ctx.target, "on_post_damage")
 
         if "func" in ability:
-            self.log(f"    {ability["func"](ctx)}")
+            result = ability["func"](ctx)
+            if result:
+                self.log(f"    {result}")
 
     def get_ability(self):
         return self.abilities[self.selected_move]
@@ -727,16 +763,16 @@ class BattleGame:
     def start_of_turn(self, ctx):
         print("Start of turn")
         start = self.apply_status_event(ctx, ctx.user, "on_turn_start")
-        self.handle_regen(ctx.user)
-        if self.special_active:
-            self.special_turn_count -= 1
-            if self.special_turn_count <= 0:
-                self.special_active = False
-                if self.player.special != "ArmorUp":
-                    self.victory_text = f"Your {self.player.special} ability has worn off."
-                if self.player.special == "Valor":
-                    self.player.attack -= 5
-                    self.player.defense -= 5
+        self.handle_regen_mp(ctx.user)
+        # if self.special_active:
+        #     self.special_turn_count -= 1
+        #     if self.special_turn_count <= 0:
+        #         self.special_active = False
+        #         if self.player.special != "ArmorUp":
+        #             self.victory_text = f"Your {self.player.special} ability has worn off."
+        #         if self.player.special == "Valor":
+        #             self.player.attack -= 5
+        #             self.player.defense -= 5
         return not start["skip_turn"]
 
     def end_of_turn(self, ctx):
@@ -751,6 +787,16 @@ class BattleGame:
     def end_of_round(self):
         pygame.display.flip()
         pygame.time.delay(1000)
+
+    def add_status(self, entity, status):
+        existing = entity.get_status(status.name)
+
+        if existing:
+            existing.duration = status.duration
+        else:
+            entity.statuses.append(status)
+            if "on_apply" in status.handlers:
+                status.handlers["on_apply"](EffectContext(self, entity, None), status)
 
     def apply_status_event(self, ctx, entity, event):
         result = {
@@ -793,7 +839,10 @@ class BattleGame:
     def cleanup_statuses(self, entity):
         entity.statuses = [s for s in entity.statuses if s.duration > 0]
 
-    def handle_regen(self, entity): 
+    def tick_status(self, ctx, status):
+        status.reduce_duration(ctx, 1)
+
+    def handle_regen_mp(self, entity): 
         entity.restore_mp(1)
         if getattr(entity, "speedy_mp_recovery", False):
             entity.restore_mp(1)
@@ -839,30 +888,33 @@ class BattleGame:
             result += "."
             self.log(result)
 
-        status.reduce_duration(ctx)
+        status.reduce_duration(ctx, 1)
         return {"blocked": True}
     
-    def sleep_turn_start(self, ctx, status):
-        self.log(f"{ctx.user.name} is asleep!")
-
-        status.reduce_duration(ctx)
-
-        return {"skip_turn": True}
-
-    def sleep_post_damage(self, ctx, status):
-        status.reduce_duration(ctx, status.duration)
-
     def valor(self, user):
-        user.modify_attack(5)
-        user.modify_defense(5)
-        return "Attack and Defense increase by 5."
+        self.add_status(user, self.status_defs["Valor"]())
     
+    def valor_apply(self, ctx, status):
+        ctx.user.modify_attack(status.data["attack"])
+        ctx.user.modify_defense(status.data["defense"])
+        self.log(f"    {ctx.user.name}'s Attack and Defense increased!")
+
+    def valor_end(self, ctx, status):
+        ctx.user.modify_attack(-status.data["attack"])
+        ctx.user.modify_defense(-status.data["attack"])
+        self.log(f"{ctx.user.name}'s Valor wore off.")
+
     def rage(self, user):
-        user.rage_active = True
-        return "You now take half damage."
+        self.add_status(user, self.status_defs["Rage"]())
+
+    def rage_apply(self, ctx, status):
+        self.log(f"    {ctx.user.name} now takes half damage from attacks.")
     
+    def rage_pre_damage(self, ctx, status):
+        return {"damage_multiplier": .5}
+
     def sheepda(self, user):
-        self.summon_sheep(user, 3)
+        self.summon_sheep(user, -1)
         return "You summon a flock of sheep that goes away in 3 turns."
     
     def armor_up(self, user):
@@ -881,10 +933,23 @@ class BattleGame:
             target.statuses.append(status)
         return f"{target.name} has fallen asleep."
 
+    def sleep_turn_start(self, ctx, status):
+        self.log(f"{ctx.user.name} is asleep!")
+
+        status.reduce_duration(ctx, 1)
+
+        return {"skip_turn": True}
+
+    def sleep_post_damage(self, ctx, status):
+        status.reduce_duration(ctx, status.duration)
+
 if __name__ == "__main__":
     game = BattleGame()
-    game.select_enemy("Bandit")
     game.run_battle()
+    game.battle_prep("Goblin")
+    game.make_buttons()
+    game.run_battle()
+    game.battle_prep("Goblin")
     game.make_buttons()
     game.run_battle()
     pygame.quit()

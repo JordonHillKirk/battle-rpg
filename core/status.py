@@ -10,4 +10,4 @@ class Status:
         if self.duration <= 0:
             handler = self.handlers.get("on_0_duration")
             if handler:
-                handler(ctx)
+                handler(ctx, self)
