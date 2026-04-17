@@ -282,10 +282,11 @@ class BattleGame:
         self.special_turn_count = 0
         self.dragon_full = False
         self.ran_away = False
+        self.battle_over = False
         if hasattr(self.player, "special_used"):
             self.player.special_used = False
-        if hasattr(self.player, "sheep_duration") and self.player.sheep_duration:
-            self.player.first_sheep = True
+        if hasattr(self.player, "sheep_duration") and self.player.get_status("Sheep") != None:
+            self.player.get_status("Sheep").data["First Sheep"] = True
         self.combat_log = []
         self.log_offset = 0  # for scrolling
         self.max_log_lines = 4
@@ -476,8 +477,8 @@ class BattleGame:
 
     def set_menu(self, menu):
         self.menu = menu
-        if self.turn == "player":
-            self.make_buttons()
+        # if self.turn == "player":
+        self.make_buttons()
 
     def go_back(self):
         self.set_menu("main")
@@ -586,42 +587,54 @@ class BattleGame:
 
         if self.turn == "player" and self.action:
             self.player_turn()
-            # self.set_menu("")
-            # self.change_turn("enemy")
             
         elif self.turn == "enemy" and self.enemy.is_alive():
             self.enemy_turn()
             self.end_of_round()
-            # self.change_turn("player")
-            # self.set_menu("main")
         
-        if not self.player.is_alive():
+        if not self.player.is_alive() and not self.battle_over:
             self.log("You were defeated!")
             self.end_battle()
 
-        if not self.enemy.is_alive():
+        if not self.enemy.is_alive() and not self.battle_over:
             self.log(f"You defeated the {self.enemy.name}!")
             self.end_battle()
         
-        if hasattr(self, "dragon_full") and self.dragon_full:
+        if hasattr(self, "dragon_full") and self.dragon_full and not self.battle_over:
             self.log(f"The {self.enemy.name} gets full from eating sheep and flies away!")
             self.end_battle()
 
     def end_battle(self):
+        self.battle_over = True
         self.turn = "player"
         self.set_menu("quit")
 
     def quit_game(self):
         self.running = False
 
-    def change_turn(self, ctx, p):
-        ctx.user, ctx.target = ctx.target, ctx.user
-        can_act = self.start_of_turn(ctx)
+    def change_turn(self, p):
+        next_user = self.enemy if p == "enemy" else self.player
+        next_target = self.player if p == "enemy" else self.enemy
+
+        new_ctx = EffectContext(self, next_user, next_target)
+
+        can_act = self.start_of_turn(new_ctx)
 
         if not can_act:
+            # immediately pass turn
+            self.end_of_turn(new_ctx)
+            next_p = "player" if p == "enemy" else "enemy"
+            self.change_turn(next_p)
             return
 
+        # Set turn
         self.turn = p
+
+        # Set menu based on turn
+        if self.turn == "player":
+            self.set_menu("main")
+        else:
+            self.set_menu("")
 
     def player_turn(self):
         ctx = EffectContext(self, self.player, self.enemy)
@@ -635,13 +648,14 @@ class BattleGame:
         self.log(f"You {verb} {article}{self.selected_move}!")
         self.execute_ability(ctx, ability, self.selected_move)
 
-        self.action = ""
-        self.selected_move = ""
-
         if self.action == "special":
+            self.action = ""
+            self.selected_move = ""
             self.set_menu("main")
             return
         
+        self.action = ""
+        self.selected_move = ""
         self.end_of_turn(ctx)
 
     def enemy_turn(self):
@@ -727,14 +741,12 @@ class BattleGame:
 
     def end_of_turn(self, ctx):
         print("End of turn")
-        end = self.apply_status_event(ctx, ctx.user, "on_turn_end")
+        self.apply_status_event(ctx, ctx.user, "on_turn_end")
         self.cleanup_statuses(ctx.user)
         if ctx.user == self.player:
-            self.set_menu("")
-            self.change_turn(ctx, "enemy")
+            self.change_turn("enemy")
         else:
-            self.change_turn(ctx, "player")
-            self.set_menu("main")
+            self.change_turn("player")
 
     def end_of_round(self):
         pygame.display.flip()
@@ -749,12 +761,14 @@ class BattleGame:
         }
 
         for status in list(entity.statuses):
+            if status.duration == 0:
+                continue
+
             handler = status.handlers.get(event)
             if not handler:
                 continue
 
             r = handler(ctx, status)
-
             if not r:
                 continue
 
@@ -775,88 +789,6 @@ class BattleGame:
                 break
 
         return result
-    
-    # def apply_turn_start(self, ctx):
-    #     result = {
-    #         "skip_turn": False,
-    #         "end_battle": False
-    #     }
-
-    #     for status in list(ctx.user.statuses):
-    #         if status.duration == 0:
-    #             continue
-
-    #         handler = status.handlers.get("on_turn_start")
-
-    #         if handler:
-    #             effect_result = handler(ctx, status)
-
-    #             if effect_result:
-    #                 result.update(effect_result)
-
-    #     return result
-
-    # def apply_pre_damage(self, ctx):
-    #     result = {
-    #         "blocked": False,
-    #         "end_battle": False
-    #     }
-
-    #     for status in list(ctx.target.statuses):  # copy for safe removal
-    #         if status.duration == 0:
-    #             continue
-
-    #         handler = status.handlers.get("on_pre_damage")
-
-    #         if handler:
-    #             effect_result = handler(ctx, status)
-
-    #             if effect_result:
-    #                 result.update(effect_result)
-
-    #             # Stop early if blocked
-    #             if result["blocked"]:
-    #                 break
-
-    #     return result
-
-    # def apply_post_damage(self, ctx):
-    #     result = {
-    #         "end_battle": False
-    #     }
-
-    #     for status in list(ctx.target.statuses):  # copy for safe removal
-    #         if status.duration == 0:
-    #             continue
-
-    #         handler = status.handlers.get("on_post_damage")
-
-    #         if handler:
-    #             effect_result = handler(ctx, status)
-
-    #             if effect_result:
-    #                 result.update(effect_result)
-
-    #     return result
-
-    # def apply_turn_end(self, ctx):
-    #     result = {
-    #         "end_battle": False
-    #     }
-
-    #     for status in list(ctx.user.statuses):
-    #         if status.duration == 0:
-    #             continue
-
-    #         handler = status.handlers.get("on_turn_end")
-
-    #         if handler:
-    #             effect_result = handler(ctx, status)
-
-    #             if effect_result:
-    #                 result.update(effect_result)
-
-    #     return result
     
     def cleanup_statuses(self, entity):
         entity.statuses = [s for s in entity.statuses if s.duration > 0]
@@ -919,7 +851,6 @@ class BattleGame:
 
     def sleep_post_damage(self, ctx, status):
         status.reduce_duration(ctx, status.duration)
-        ctx.target.remove_status(status.name)
 
     def valor(self, user):
         user.modify_attack(5)
@@ -938,7 +869,7 @@ class BattleGame:
         user.hp += user.max_hp
         return "You fortify your armor."
     
-    def sleep(self, target, turns = 1):
+    def sleep(self, target, turns = 0):
         template = self.status_defs["Sleep"]()
         status = target.get_status("Sleep")
         if status != None:
@@ -948,7 +879,7 @@ class BattleGame:
             if turns != 0:
                 status.duration = turns
             target.statuses.append(status)
-        return f"   {target.name} has fallen asleep."
+        return f"{target.name} has fallen asleep."
 
 if __name__ == "__main__":
     game = BattleGame()
