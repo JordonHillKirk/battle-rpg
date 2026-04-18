@@ -20,10 +20,10 @@ if __name__ == "__main__":
     game = advanced_rpg.BattleGame()
     ctx = GameContext(game)
 
-    # CHARACTER SELECT (blocks here)
+    # CHARACTER SELECT
     player = game.run_character_select()
 
-    # give player to RPG systems
+    # give player to RPG system
     init_player(ctx)
 
     # now start branching RPG

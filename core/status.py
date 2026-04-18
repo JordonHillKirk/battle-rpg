@@ -1,5 +1,6 @@
 class Status:
-    def __init__(self, name, duration, handlers=None, data=None):
+    def __init__(self, id, name, duration, handlers=None, data=None):
+        self.id = id
         self.name = name
         self.duration = duration
         self.handlers = handlers or {}

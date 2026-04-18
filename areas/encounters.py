@@ -33,7 +33,7 @@ def goblin_toll(ctx, kwargs):
                 print("[You got 5 gold.]")
                 get_gold(ctx, 5)
                 print("[You got a potion.]")
-                get_item(ctx, "Potion")
+                get_item(ctx, "potion")
             print("You continue down the path.")
             return forward()
 
@@ -62,10 +62,10 @@ def bandits(ctx, kwargs):
                 return run_away()
             if not fight(ctx, "Bandit"):
                 return run_away()
-            print("\nYou loot the bodies, and find a potion and a dagger.")
-            print("[You got a potion.]")
+            print("\nYou loot the bodies, and find a Potion and a dagger.")
+            print("[You got a Potion.]")
             print("[You equipped the dagger. (+2 Attack)]")
-            get_item(ctx, "Potion")
+            get_item(ctx, "potion")
             attack_up(ctx, 2)
             print("You continue down the path.")
             return forward()

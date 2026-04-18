@@ -1,7 +1,7 @@
 name;hp;max_hp;attack;defense;magic;mp;max_mp;special;moves;inventory;spells
-Hero;100;100;15;5;25;30;30;Valor;Slash,Heavy Strike;Potion,Potion,Power Boost;Fireball,Ice Spike,Lambda
-Wizard;20;20;10;2;50;200;200;Sheepda;Slash;;Fireball,Ice Spike,Lambda,Magic Up
-Barbarian;150;150;20;0;5;2;2;Rage;Slash,Heavy Strike;Power Boost,Power Boost;
-Tank;5;5;15;200;20;10;10;ArmorUp;Slash,Heavy Strike;;Lambda
-Bard;80;80;15;4;30;50;50;Sleep;Slash,Heavy Strike;Potion,Mana Potion,Magic Boost;Ice Spike,Lambda,Magic Up
-Dev;1000;1000;50;100;50;300;300;;Slash,Heavy Strike;;;
+Hero;100;100;15;5;25;30;30;valor;slash,heavy_strike;potion,potion,power_boost;fireball,ice_spike,lambda
+Wizard;20;20;10;2;50;200;200;sheepda;slash;;fireball,ice_spike,lambda,magic_up
+Barbarian;150;150;20;0;5;2;2;rage;slash,heavy_strike;power_boost,power_boost;
+Tank;5;5;15;200;20;10;10;armorup;slash,heavy_strike;;lambda
+Bard;80;80;15;4;30;50;50;sleep;slash,heavy_strike;potion,Mana potion,magic_boost;ice_spike,lambda,magic_up
+Dev;1000;1000;50;100;50;300;300;;slash,heavy_strike;;;

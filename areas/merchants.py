@@ -28,9 +28,9 @@ def traveling_merchant(ctx, kwargs):
         if choice == "1":
             return shop(
                 ctx,
-                ("Potion", 5),
-                ("Power Boost", 10),
-                ("Dragon's Bane", 30),
+                ("potion", 5),
+                ("power_boost", 10),
+                ("dragon_bane", 30),
             )
 
         elif choice == "2":
@@ -58,9 +58,9 @@ def traveling_merchant2(ctx: GameContext, kwargs):
         if choice == "1":
             return shop(
                 ctx, 
-                ("Mana Potion", 5),
-                ("Magic Boost", 10),
-                ("Dragon's Bane", 30),
+                ("mana_potion", 5),
+                ("magic_boost", 10),
+                ("dragon_bane", 30),
             )
 
         elif choice == "2":
@@ -83,19 +83,19 @@ def shop(ctx, *items):
         # Build list of purchasable items
         available_items = []
 
-        for item in items:
-            item_name, value = item
+        for item_id, value in items:
 
             # Prevent duplicate Dragon's Bane
-            if item_name == "Dragon's Bane" and has_item(ctx, "Dragon's Bane"):
+            if item_id == "dragon_bane" and has_item(ctx, "dragon_bane"):
                 continue
-
-            available_items.append(item)
+            
+            item = ctx.game.get_ability(item_id)
+            available_items.append((item, value))
 
         # Display items
-        for i, (item_name, value) in enumerate(available_items, 1):
+        for i, (item, value) in enumerate(available_items, 1):
             print(
-                f"{i}. {item_name} ({value} gold)"
+                f"{i}. {item["name"]} ({value} gold)"
                 f"{'' if has_gold(ctx, value) else ' [Not enough gold]'}"
             )
 
@@ -112,7 +112,9 @@ def shop(ctx, *items):
         # Purchase item
         elif choice.isnumeric() and 1 <= int(choice) <= len(available_items):
 
-            item_name, value = available_items[int(choice) - 1]
+            item, value = available_items[int(choice) - 1]
+            item_name = item["name"]
+            item_id = item["id"]
 
             if has_gold(ctx, value):
                 article = "an" if item_name[0].lower() in "aeiou" else "a"
@@ -122,7 +124,7 @@ def shop(ctx, *items):
                 print(f"[You gained {article} {item_name}]")
 
                 give_gold(ctx, value)
-                get_item(ctx, item_name)
+                get_item(ctx, item_id)
 
             else:
                 print("You do not have enough gold for that item.")

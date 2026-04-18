@@ -73,7 +73,7 @@ class Entity:
         self.statuses = [s for s in self.statuses if s.name != name]
 
 class Player(Entity):
-    def __init__(self, name="Hero", hp=100, max_hp=100, attack=15, defense=5, magic=25, mp=30, max_mp=30, special="", moves=["Slash", "Heavy Strike"], inventory=["Potion","Potion","Power Boost"], spells = []):
+    def __init__(self, name="Hero", hp=100, max_hp=100, attack=15, defense=5, magic=25, mp=30, max_mp=30, special="", moves=["slash", "heavy_strike"], inventory=["potion", "potion", "power_boost"], spells = []):
         super().__init__(name, {"subject": "You", "object": "you", "possessive": "Your"}, max_hp, attack, defense, magic, max_mp, moves, inventory, spells)
         self.hp = hp
         self.mp = mp
@@ -101,7 +101,7 @@ class Player(Entity):
             return data
         
 class Enemy(Entity):
-    def __init__(self, name, species, hp, attack, defense, magic = 0, mp = 0, moves = ["Scratch"], inventory = [], spells = []):
+    def __init__(self, name, species, hp, attack, defense, magic = 0, mp = 0, moves = ["scratch"], inventory = [], spells = []):
         super().__init__(name, {"subject": "They", "object": "them", "possessive": "Their"}, hp, attack, defense, magic, mp, moves, inventory, spells)
         self.species = species
 
