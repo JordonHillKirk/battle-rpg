@@ -40,7 +40,7 @@ sheep_image = pygame.Surface((80, 80))
 sheep_image.fill((255, 255, 255))
 pygame.draw.circle(sheep_image, (200, 200, 200), (40, 40), 40)
 
-specials = ["Rage", "Valor", "Sheepda", "ArmorUp", "Sleep"]
+specials = ["Rage", "Valor", "Sheepda", "ArmorUp", "Sleep", "Superior Poison"]
 
 def draw_text(surface, text, x, y, color=(255,255,255)):
     rendered = font.render(text, True, color)
@@ -95,6 +95,7 @@ class BattleGame:
             "Barbarian": 3,
             "Tank": 4,
             "Bard": 5,
+            "Rogue": 6,
             # "Dev": 6
         }
         self.selected_character = None
@@ -124,7 +125,7 @@ class BattleGame:
             },
             "bite": {
                 "id": "bite",
-                "name": "",
+                "name": "Bite",
                 "effect": ["damage"], 
                 "damage": lambda ctx: ctx.user.attack - ctx.target.defense + 2
             },
@@ -157,14 +158,13 @@ class BattleGame:
                 "name": "Poison Blade",
                 "effect": ["damage", "status"], 
                 "damage": lambda ctx: ctx.user.attack - ctx.target.defense - 5,
-                "func": lambda ctx: ctx.game.poison(5)
+                "func": lambda ctx: ctx.game.poison(ctx.target, 5)
             },
             "fireball": {
                 "id": "fireball",
                 "name": "Fireball",
                 "effect": ["damage"], 
                 "cost": {
-                    "id": "",
                     "mp": 10, 
                 },
                 "damage": lambda ctx: ctx.user.magic - ctx.target.defense + 5, 
@@ -175,7 +175,6 @@ class BattleGame:
                 "name": "Ice Spike",
                 "effect": ["damage"], 
                 "cost": {
-                    "id": "",
                     "mp": 8, 
                 },
                 "damage": lambda ctx: ctx.user.magic - ctx.target.defense - 5, 
@@ -186,7 +185,6 @@ class BattleGame:
                 "name": "Lambda",
                 "effect": ["status"], 
                 "cost": {
-                    "id": "",
                     "mp": 5, 
                 }, 
                 "func": lambda ctx: ctx.game.summon_sheep(ctx.user), 
@@ -197,7 +195,6 @@ class BattleGame:
                 "name": "Magic Up",
                 "effect": ["status"], 
                 "cost": {
-                    "id": "",
                     "mp": 20, 
                 },
                 "func": lambda ctx: ctx.user.modify_magic(10), 
@@ -208,19 +205,28 @@ class BattleGame:
                 "name": "Potion",
                 "effect": ["heal"], 
                 "cost": {
-                    "id": "",
                     "item": 1, 
                 },
                 "func": lambda ctx: ctx.user.restore_hp(30), 
                 "hover": "+30 HP",
                 "value": 30
             },
+            "super_potion": {
+                "id": "super_potion",
+                "name": "Super Potion",
+                "effect": ["heal"], 
+                "cost": {
+                    "item": 1, 
+                },
+                "func": lambda ctx: ctx.user.restore_hp(60), 
+                "hover": "+60 HP",
+                "value": 60
+            },
             "mana_potion": {
                 "id": "mana_potion",
                 "name": "Mana Potion",
                 "effect": ["status"],
                 "cost": {
-                    "id": "",
                     "item": 1, 
                 },
                 "func": lambda ctx: ctx.user.restore_mp(20), 
@@ -231,7 +237,6 @@ class BattleGame:
                 "name": "Power Boost",
                 "effect": ["status"],
                 "cost": {
-                    "id": "",
                     "item": 1, 
                 },
                 "func": lambda ctx: ctx.user.modify_attack(5), 
@@ -242,7 +247,6 @@ class BattleGame:
                 "name": "Magic Boost",
                 "effect": ["status"],
                 "cost": {
-                    "id": "",
                     "item": 1, 
                 },
                 "func": lambda ctx: ctx.user.modify_magic(10), 
@@ -253,12 +257,21 @@ class BattleGame:
                 "name": "Dragon's Bane",
                 "effect": ["status"],
                 "cost": {
-                    "id": "",
                     "item": 1,
                 },
                 "func": lambda ctx: ctx.game.kill_dragon(ctx), 
                 "hover": "Kills a dragon"
-            }, 
+            },
+            "smoke_bomb": {
+                "id": "smoke_bomb",
+                "name": "Smoke Bomb",
+                "effect": ["status"],
+                "cost": {
+                    "item": 1,
+                },
+                "func": lambda ctx: ctx.game.try_escape(100), 
+                "hover": "Escapes combat without fail."
+            },
             "valor": {
                 "id": "valor",
                 "name": "Valor",
@@ -294,6 +307,13 @@ class BattleGame:
                 "func": lambda ctx: ctx.game.sleep(ctx.target),
                 "hover": "Puts the enemy to sleep for 3 turns."
             },
+            "superior_poison": {
+                "id": "superior_poison",
+                "name": "Superior Poison",
+                "effect": ["status"],
+                "func": lambda ctx: ctx.game.poison(ctx.target, 15),
+                "hover": "Puts the enemy to sleep for 3 turns."
+            },
             "pass": {
                 "id": "pass",
                 "name": "Pass",
@@ -304,7 +324,7 @@ class BattleGame:
         }
 
         self.status_defs = {
-            "poison": lambda duration = -1: Status(
+            "poison": lambda duration = 5: Status(
                 "poison",
                 "Poison",
                 duration,
@@ -340,6 +360,20 @@ class BattleGame:
                 },
                 {
                     "display_text": "Sheep will block next attack!",
+                    "first_sheep": True
+                }
+            ),
+            "sheepda": lambda duration = 3: Status(
+                "sheepda",
+                "Sheepda",
+                duration,
+                {
+                    "on_turn_start": self.tick_status,
+                    "on_pre_damage": self.sheep_pre_damage,
+                    "on_0_duration": lambda ctx, status: self.log(f"{ctx.user.pronouns["possessive"]} sheep disappeared.")
+                },
+                {
+                    "display_text": "Sheepda",
                     "first_sheep": True
                 }
             ),
@@ -410,8 +444,8 @@ class BattleGame:
         self.battle_over = False
         if hasattr(self.player, "special_used"):
             self.player.special_used = False
-        if hasattr(self.player, "sheep_duration") and self.player.get_status("Sheep") != None:
-            self.player.get_status("Sheep").data["First Sheep"] = True
+        if hasattr(self.player, "get_status") and self.player.get_status("sheep") != None:
+            self.player.get_status("sheep").data["first_sheep"] = True
         self.combat_log = []
         self.log_offset = 0  # for scrolling
         self.max_log_lines = 4
@@ -554,13 +588,13 @@ class BattleGame:
             options = []
             for move_id in self.player.moves:
                 move = self.get_ability(move_id)
-                hover = ""
+                hover = move.get("hover", "")
                 if "damage" in move["effect"]:
                     base_damage = move["damage"](ctx)
                     min_damage = max(0, base_damage - 3)
                     max_damage = max(0, base_damage + 3)
                     hover += f"Damage: {min_damage}-{max_damage}"
-                elif "status" in move["effect"]:
+                if "status" in move["effect"]:
                     hover += "status move"
                 options.append((move["name"], lambda m=move_id: self.select_move(ctx, m), hover))
             options.append(("Back", self.go_back, None))
@@ -570,7 +604,7 @@ class BattleGame:
             for spell_id in self.player.spells:
                 spell = self.get_ability(spell_id)
                 spell_mp = spell.get("cost", {}).get("mp", 0)
-                hover = spell["hover"]
+                hover = spell.get("hover")
                 if "damage" in spell["effect"]:
                     base_damage = spell["damage"](ctx)
                     min_damage = max(1, base_damage - 3)
@@ -585,7 +619,7 @@ class BattleGame:
             items = list(set(self.player.inventory))
             for item_id in items:
                 item = self.get_ability(item_id)
-                options.append((f"{item["name"]} x{self.player.inventory.count(item_id)}", lambda i=item_id: self.use_item(ctx, i), item["hover"]))
+                options.append((f"{item["name"]} x{self.player.inventory.count(item_id)}", lambda i=item_id: self.use_item(ctx, i), item.get("hover")))
             options.append(("Back", self.go_back, None))
 
         elif self.menu == "special":
@@ -606,8 +640,8 @@ class BattleGame:
             self.buttons.append(Button((50, y_offset + i * spacing, width, 30), text, callback, hover))
 
     def set_menu(self, menu):
-        self.menu = menu
-        # if self.turn == "player":
+        if self.menu != "quit":
+            self.menu = menu
         self.make_buttons()
 
     def go_back(self):
@@ -619,9 +653,8 @@ class BattleGame:
         self.selected_move = self.player.special
         self.set_menu("main")
 
-    def try_escape(self):
-        chance = .5
-        if random.random() < chance:
+    def try_escape(self, chance = 25):
+        if random.randint(1, 100) <= chance:
             self.log("You escaped!")
             self.ran_away = True
             self.end_battle()
@@ -776,10 +809,14 @@ class BattleGame:
         verb = self.text_formatter[self.action]["verb"]
         article = self.text_formatter[self.action].get("article", "")
         if article != "":
-            article = article(self.selected_move)
+            article = article(ability["name"])
 
-        self.log(f"You {verb} {article}{self.selected_move}!")
+        self.log(f"{ctx.user.pronouns["subject"]} {verb} {article}{ability["name"]}!")
         self.execute_ability(ctx, ability, self.selected_move)
+        if self.battle_over:
+            self.action = ""
+            self.selected_move = ""
+            return
 
         if self.action == "special":
             self.action = ""
@@ -873,7 +910,6 @@ class BattleGame:
         return not start["skip_turn"]
 
     def end_of_turn(self, ctx):
-        # print("End of turn")
         self.apply_status_event(ctx, ctx.user, "on_turn_end")
         self.cleanup_statuses(ctx.user)
         if ctx.user == self.player:
@@ -885,11 +921,15 @@ class BattleGame:
         pygame.display.flip()
         pygame.time.delay(1000)
 
-    def add_status(self, entity, status):
-        existing = entity.get_status(status.name)
+    def add_status(self, entity, status, replace_duration = True):
+        existing = entity.get_status(status.id)
 
         if existing:
-            existing.duration = status.duration
+            if replace_duration:
+                existing.duration = status.duration
+            else:
+                existing.duration += status.duration
+
         else:
             entity.statuses.append(status)
             if "on_apply" in status.handlers:
@@ -927,7 +967,7 @@ class BattleGame:
             if "damage_multiplier" in r:
                 result["damage_multiplier"] *= r["damage_multiplier"]
 
-            # 🔥 Early exit for hard stops
+            # Early exit for hard stops
             if result["blocked"] or result["skip_turn"] or result["end_battle"]:
                 break
 
@@ -965,7 +1005,7 @@ class BattleGame:
                 status.duration = attacks
             user.statuses.append(status)
         return "A sheep blocks the next attack!"
-    
+
     def sheep_pre_damage(self, ctx, status):
         attacker = ctx.user
         
@@ -983,7 +1023,8 @@ class BattleGame:
             result += "."
             self.log(result)
 
-        status.reduce_duration(ctx, 1)
+        if status.id != "sheepda":
+            status.reduce_duration(ctx, 1)
         return {"blocked": True}
     
     def valor(self, user):
@@ -1007,7 +1048,7 @@ class BattleGame:
         return {"damage_multiplier": .5}
 
     def sheepda(self, user):
-        self.summon_sheep(user, -1)
+        self.add_status(user, self.status_defs["sheepda"]())
         return "You summon a flock of sheep that goes away in 3 turns."
     
     def armor_up(self, user):
@@ -1042,13 +1083,22 @@ class BattleGame:
     def speedy_regen_mp_tick(self, ctx, status):
         ctx.user.restore_mp(status.data["mp_gain"])
 
+    def poison(self, entity, val = 5):
+        self.add_status(entity, self.status_defs["poison"](val), False)
+
+    def poison_tick(self, ctx, status):
+        self.log(f"{ctx.user.name} took {status.duration} Poison damage.")
+        ctx.user.take_damage(status.duration)
+        self.tick_status(ctx, status)
+
+
 if __name__ == "__main__":
     game = BattleGame()
     game.run_battle()
-    game.battle_prep("Goblin")
+    game.battle_prep("Dragon")
     game.make_buttons()
     game.run_battle()
-    game.battle_prep("Goblin")
+    game.battle_prep("Dragon")
     game.make_buttons()
     game.run_battle()
     pygame.quit()

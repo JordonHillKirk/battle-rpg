@@ -40,6 +40,9 @@ def has_item(ctx: GameContext, item: str):
 def get_item(ctx: GameContext, item: str):
     ctx.game.player.inventory.append(item)
 
+def get_move(ctx: GameContext, ability: str):
+    ctx.game.player.moves.append(ability)
+
 
 # --------------------------------------------------
 # COMBAT SYSTEM

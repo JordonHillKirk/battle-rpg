@@ -13,6 +13,7 @@ from .encounters import (
 from .merchants import (
     traveling_merchant,
     traveling_merchant2,
+    traveling_merchant4,
     shop,
 )
 

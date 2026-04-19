@@ -57,9 +57,9 @@ class Entity:
         self.magic_mod += val
         return f"{self.pronouns["possessive"]} Magic {'decreased' if val < 0 else 'increased'} by {val}."
 
-    def get_status(self, name):
+    def get_status(self, id):
         for s in self.statuses:
-            if s.name == name:
+            if s.id == id:
                 return s
         return None
     
