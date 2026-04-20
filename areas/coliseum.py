@@ -2,10 +2,8 @@
 
 import random
 
-import advanced_rpg
 from core.area_utils import back, forward, press_enter_to_continue
-from core.game_context import GameContext
-from core.game_utils import fight, get_gold, give_gold, has_gold, init_player
+from core.game_utils import fight, get_gold, give_gold, has_gold, rest
 
 
 def coliseum_path(ctx, kwargs):
@@ -94,5 +92,7 @@ def tournament(ctx, kwargs):
         return
     else:
         print("You won! You are the new champion.")
+        print("The manager comes to you with a special potion to revitalize you.")
+        rest(ctx)
         return
     
