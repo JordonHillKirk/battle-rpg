@@ -105,8 +105,11 @@ class BattleGame:
             Enemy("Goblin", "Goblin", 50, 10, 2, 0, 0, ["bite", "scratch", "surprise"]),
             Enemy("Orc", "Orc", 80, 12, 4),
             Enemy("Orc Shaman", "Orc", 60, 14, 3, 20, 20, ["slash"], [], ["lambda"]),
-            Enemy("Dragon", "Dragon", 150, 20, 8, 0, 0, ["bite", "fire_breath"]),
-            Enemy("Elder Dragon", "Dragon", 300, 25, 10, 0, 0, ["bite", "greater_fire_breath"]),
+            Enemy("Orc Elite", "Orc", 100, 15, 5, 10, 10, ["heavy_strike"], [], ["lambda"]),
+            Enemy("Orc Champion", "Orc", 120, 18, 6, 20, 20, ["slash"], [], ["lambda"]),
+            Enemy("Sneaky Orc", "Orc", 100, 15, 3, 0, 0, ["poison_blade"], [], []),
+            Enemy("Dragon", "Dragon", 200, 20, 8, 0, 0, ["bite", "fire_breath"]),
+            Enemy("Elder Dragon", "Dragon", 400, 25, 10, 0, 0, ["bite", "greater_fire_breath"]),
             Enemy("Bandit", "Human", 60, 14, 3, 0, 0, ["slash"], ["potion", "potion", "potion", "potion", "potion"]),
         ]
 
@@ -995,15 +998,10 @@ class BattleGame:
     
     def summon_sheep(self, user, attacks = 0):
         template = self.status_defs["sheep"]()
-        status = user.get_status("sheep")
-        if status != None:
-            status.duration = template.duration
-            status.data["first_sheep"] = True
-        else:
-            status = template
-            if attacks != 0:
-                status.duration = attacks
-            user.statuses.append(status)
+        status = template
+        if attacks != 0:
+            status.duration = attacks
+        user.statuses.append(status)
         return "A sheep blocks the next attack!"
 
     def sheep_pre_damage(self, ctx, status):
