@@ -362,7 +362,7 @@ class BattleGame:
                     "on_0_duration": lambda ctx, status: self.log("    The sheep disappeared.")
                 },
                 {
-                    "display_text": "Sheep will block next attack!",
+                    "display_text": "Sheep",
                     "first_sheep": True
                 }
             ),
@@ -431,7 +431,7 @@ class BattleGame:
 
         self.battle_prep()
 
-    def battle_prep(self, e = None):
+    def battle_prep(self, e = None, allow_forfeit = False):
         self.turn = "player"
         self.action = None
         self.selected_move = None
@@ -452,7 +452,7 @@ class BattleGame:
         self.combat_log = []
         self.log_offset = 0  # for scrolling
         self.max_log_lines = 4
-        self.pending_logs = []
+        self.allow_forfeit = allow_forfeit
 
     def log(self, message):
         if message == None:
@@ -585,7 +585,10 @@ class BattleGame:
             options.append(("Attack", lambda: self.set_menu("attack"), None))
             options.append(("Items", lambda: self.set_menu("items"), None))
             options.append(("Spells", lambda: self.set_menu("spells"), None))
-            options.append(("Run", self.try_escape, None))
+            if self.allow_forfeit:
+                options.append(("Forfeit", self.forfeit_battle, None))
+            else:
+                options.append(("Run", self.try_escape, None))
 
         elif self.menu == "attack":
             options = []
@@ -656,7 +659,13 @@ class BattleGame:
         self.selected_move = self.player.special
         self.set_menu("main")
 
+    def forfeit_battle(self):
+        self.log("You forfeited the battle.")
+        self.ran_away = True
+        self.end_battle()
+
     def try_escape(self, chance = 25):
+        chance = max(chance, (1 - self.enemy.hp / self.enemy.max_hp) * 100)
         if random.randint(1, 100) <= chance:
             self.log("You escaped!")
             self.ran_away = True
@@ -901,15 +910,6 @@ class BattleGame:
         # print("Start of turn")
         start = self.apply_status_event(ctx, ctx.user, "on_turn_start")
         self.handle_regen_mp(ctx.user)
-        # if self.special_active:
-        #     self.special_turn_count -= 1
-        #     if self.special_turn_count <= 0:
-        #         self.special_active = False
-        #         if self.player.special != "ArmorUp":
-        #             self.victory_text = f"Your {self.player.special} ability has worn off."
-        #         if self.player.special == "Valor":
-        #             self.player.attack -= 5
-        #             self.player.defense -= 5
         return not start["skip_turn"]
 
     def end_of_turn(self, ctx):

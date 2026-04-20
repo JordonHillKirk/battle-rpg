@@ -2,7 +2,8 @@
 
 import advanced_rpg
 
-from core.game_utils import init_player
+from areas.coliseum import coliseum_path
+from core.game_utils import get_gold, init_player
 from core.map_engine import (
     randomize_areas,
     main as run_map,
@@ -25,7 +26,7 @@ if __name__ == "__main__":
 
     # give player to RPG system
     init_player(ctx)
-
+    
     # now start branching RPG
     randomize_areas(ctx)
     run_map(ctx)

@@ -56,3 +56,6 @@ from .password_gate import (
     tree,
     password_gate
 )
+
+# ---- orc coliseum ----
+from .coliseum import coliseum_path

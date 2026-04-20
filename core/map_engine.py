@@ -10,6 +10,59 @@ from core.game_context import GameContext
 RULES = {}
 
 # --------------------------------------------------
+# AREA DEFINITIONS
+# --------------------------------------------------
+
+# path generators must equal path consumers.
+s = {"name": "Start", "func": start, "type": "start"}
+
+normal_areas = [
+    {"name": "Goblin Toll", "func": goblin_toll, "type": "normal"},
+    {"name": "Bandits", "func": bandits, "type": "normal"},
+    {"name": "Coliseum", "func": coliseum_path, "type": "normal"},
+]
+
+random_encounters = [
+    {"name": "Traveling Merchant", "func": traveling_merchant, "type": "normal", "target": 25, "rules": ["random_encounter"]},
+    {"name": "Traveling Merchant", "func": traveling_merchant, "type": "normal", "target": 25, "rules": ["random_encounter"]},
+    {"name": "Traveling Merchant2", "func": traveling_merchant2, "type": "normal", "target": 25, "rules": ["random_encounter"]},
+    {"name": "Traveling Merchant2", "func": traveling_merchant2, "type": "normal", "target": 25, "rules": ["random_encounter"]},
+    {"name": "Actual Fork", "func": actual_fork, "type": "normal", "target": 10, "rules": ["random_encounter"]},
+]
+
+branching_areas = [
+    {"name": "Fork", "func": fork, "type": "branch"},
+    {"name": "Fork2", "func": fork, "type": "branch"},
+]
+
+cave_node = {"name": "Cave", "func": cave, "type": "endpoint"}
+endpoint_areas = [
+    cave_node,
+    {"name": "Oasis", "func": oasis, "type": "endpoint"},
+]
+
+dummy_endpoints = [
+    {"name": "Dummy Cave", "type": "dummy", "target": cave_node},
+]
+
+teleport_landing = {"name": "Teleport Landing", "func": teleporter_trap_landing, "type": "normal", "rules": ["teleport_only"]}
+
+one_way_to_areas = [
+    teleport_landing
+]
+
+one_way_from_areas = [
+    {
+        "name": "Teleporter Trap",
+        "func": teleporter_trap,
+        "type": "one_way_to_normal",
+        "target": teleport_landing
+    }
+]
+
+password_gate_area = {"name": "Password Gate", "func": password_gate, "type": "normal"}
+
+# --------------------------------------------------
 # DEBUG OUTPUT
 # --------------------------------------------------
 
@@ -96,58 +149,6 @@ def validate_return_to_start(ctx):
 
     print("✅ All areas can reach Start")
     return True
-
-# --------------------------------------------------
-# AREA DEFINITIONS
-# --------------------------------------------------
-
-# path generators must equal path consumers.
-s = {"name": "Start", "func": start, "type": "start"}
-
-normal_areas = [
-    {"name": "Goblin Toll", "func": goblin_toll, "type": "normal"},
-    {"name": "Bandits", "func": bandits, "type": "normal"},
-]
-
-random_encounters = [
-    {"name": "Traveling Merchant", "func": traveling_merchant, "type": "normal", "target": 25, "rules": ["random_encounter"]},
-    {"name": "Traveling Merchant", "func": traveling_merchant, "type": "normal", "target": 25, "rules": ["random_encounter"]},
-    {"name": "Traveling Merchant2", "func": traveling_merchant2, "type": "normal", "target": 25, "rules": ["random_encounter"]},
-    {"name": "Traveling Merchant2", "func": traveling_merchant2, "type": "normal", "target": 25, "rules": ["random_encounter"]},
-    {"name": "Actual Fork", "func": actual_fork, "type": "normal", "target": 10, "rules": ["random_encounter"]},
-]
-
-branching_areas = [
-    {"name": "Fork", "func": fork, "type": "branch"},
-    {"name": "Fork2", "func": fork, "type": "branch"},
-]
-
-cave_node = {"name": "Cave", "func": cave, "type": "endpoint"}
-endpoint_areas = [
-    cave_node,
-    {"name": "Oasis", "func": oasis, "type": "endpoint"},
-]
-
-dummy_endpoints = [
-    {"name": "Dummy Cave", "type": "dummy", "target": cave_node},
-]
-
-teleport_landing = {"name": "Teleport Landing", "func": teleporter_trap_landing, "type": "normal", "rules": ["teleport_only"]}
-
-one_way_to_areas = [
-    teleport_landing
-]
-
-one_way_from_areas = [
-    {
-        "name": "Teleporter Trap",
-        "func": teleporter_trap,
-        "type": "one_way_to_normal",
-        "target": teleport_landing
-    }
-]
-
-password_gate_area = {"name": "Password Gate", "func": password_gate, "type": "normal"}
 
 # --------------------------------------------------
 # MAP RANDOMIZATION (RESTORED)

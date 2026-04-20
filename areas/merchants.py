@@ -189,9 +189,6 @@ def shop(ctx, *items):
             print("You say goodbye to the merchant, and move on.")
             return forward()
 
-        elif choice == "test":
-            get_gold(ctx, 20)
-
         # Purchase item
         elif choice.isnumeric() and 1 <= int(choice) <= len(available_items):
 

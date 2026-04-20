@@ -58,14 +58,22 @@ def bandits(ctx, kwargs):
             print("You continue down the path.")
             return forward()
         elif choice == "2":
+            potion = False
             if not fight(ctx, "Bandit"):
                 return run_away()
+            if "potion" in ctx.game.enemy.inventory:
+                potion = True
             if not fight(ctx, "Bandit"):
                 return run_away()
-            print("\nYou loot the bodies, and find a Potion and a dagger.")
-            print("[You got a Potion.]")
+            if "potion" in ctx.game.enemy.inventory:
+                potion = True
+            print("\nYou loot the bodies, and find a dagger.")
+            if potion:
+                print("You also find an unused potion.")
             print("[You equipped the dagger. (+2 Attack)]")
-            get_item(ctx, "potion")
+            if potion:
+                print("[You got a Potion.]")
+                get_item(ctx, "potion")
             attack_up(ctx, 2)
             print("You continue down the path.")
             return forward()

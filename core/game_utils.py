@@ -48,13 +48,13 @@ def get_move(ctx: GameContext, ability: str):
 # COMBAT SYSTEM
 # --------------------------------------------------
 
-def fight(ctx: GameContext, enemy, new_fight=True):
+def fight(ctx: GameContext, enemy, new_fight=True, allow_forfeit=False):
     print("\n[Open battle window]")
 
     ctx.game.restore_window()
 
     if new_fight:
-        ctx.game.battle_prep(enemy)
+        ctx.game.battle_prep(enemy, )
     else:
         ctx.game.ran_away = False
         ctx.game.last_player_action = ""
