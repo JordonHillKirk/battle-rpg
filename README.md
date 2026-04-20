@@ -1,0 +1,11 @@
+This is a map traversal/rpg application.
+
+In addition to other things, it randomizes the map every time you play.
+
+Once downloaded, unzip the file, then navigate in the terminal to the folder and run this command in the terminal to install necessary dependencies:
+pip install -r requirements.txt
+
+Then run:
+python main.py
+
+Enjoy!
