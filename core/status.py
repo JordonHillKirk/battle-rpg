@@ -1,10 +1,11 @@
 class Status:
-    def __init__(self, id, name, duration, handlers=None, data=None):
+    def __init__(self, id, name, duration, handlers=None, data=None, tags=None):
         self.id = id
         self.name = name
         self.duration = duration
         self.handlers = handlers or {}
         self.data = data or {}
+        self.tags = tags or set()
 
     def reduce_duration(self, ctx, val = 1):
         self.duration -= val

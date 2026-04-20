@@ -54,7 +54,7 @@ def fight(ctx: GameContext, enemy, new_fight=True, allow_forfeit=False):
     ctx.game.restore_window()
 
     if new_fight:
-        ctx.game.battle_prep(enemy, )
+        ctx.game.battle_prep(enemy, allow_forfeit)
     else:
         ctx.game.ran_away = False
         ctx.game.last_player_action = ""
@@ -108,13 +108,11 @@ def rest(ctx: GameContext):
     if message:
         print("Your " + message + ".")
 
-
 def heal_hp(ctx: GameContext, val: int = None):
     if val:
         ctx.game.player.hp = min(ctx.game.player.max_hp, ctx.game.player.hp + val)
     else:
         ctx.game.player.hp = ctx.game.player.max_hp
-
 
 def heal_mp(ctx: GameContext, val: int = None):
     if val:
@@ -122,11 +120,18 @@ def heal_mp(ctx: GameContext, val: int = None):
     else:
         ctx.game.player.mp = ctx.game.player.max_mp
 
-
 def restore_defense(ctx) -> str:
     if ctx.game.player.defense_mod < 0:
         return ctx.game.player.modify_defense(-ctx.game.player.defense_mod)
     return ""
+
+def cleanse_debuff_statuses(ctx) -> None:
+    for status in list(ctx.game.player.statuses):
+        if "debuff" in status.tags and "cleansable" in status.tags:
+            status.duration = 0
+            print(f"{status.name} has been removed.")
+            ctx.game.player.remove_status(status.id)
+    
 
 # --------------------------------------------------
 # PLAYER INITIALIZATION

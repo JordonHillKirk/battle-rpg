@@ -69,8 +69,8 @@ class Entity:
 
         self.statuses.append(status)
 
-    def remove_status(self, name):
-        self.statuses = [s for s in self.statuses if s.name != name]
+    def remove_status(self, id):
+        self.statuses = [s for s in self.statuses if s.id != id]
 
 class Player(Entity):
     def __init__(self, name="Hero", hp=100, max_hp=100, attack=15, defense=5, magic=25, mp=30, max_mp=30, special="", moves=["slash", "heavy_strike"], inventory=["potion", "potion", "power_boost"], spells = []):

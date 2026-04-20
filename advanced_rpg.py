@@ -337,7 +337,8 @@ class BattleGame:
                 },
                 {
                     "display_text": "Poison"
-                }
+                },
+                {"debuff", "cleanseable"}
 
             ),
             "rage": lambda duration = 3: Status(
@@ -351,7 +352,8 @@ class BattleGame:
                 },
                 {
                     "display_text": "Rage"
-                }
+                },
+                {"buff"}
             ),
             "sheep": lambda duration = 0: Status(
                 "sheep",
@@ -364,7 +366,8 @@ class BattleGame:
                 {
                     "display_text": "Sheep",
                     "first_sheep": True
-                }
+                },
+                {"buff"}
             ),
             "sheepda": lambda duration = 3: Status(
                 "sheepda",
@@ -378,7 +381,8 @@ class BattleGame:
                 {
                     "display_text": "Sheepda",
                     "first_sheep": True
-                }
+                },
+                {"buff"}
             ),
             "sleep": lambda duration = 3: Status(
                 "sleep",
@@ -391,7 +395,8 @@ class BattleGame:
                 },
                 {
                     "display_text": "Asleep",
-                }
+                },
+                {"debuff", "cleanseable"}
             ),
             "speedy_mp_recovery": lambda duration = -1: Status(
                 "speedy_mp_recovery",
@@ -402,8 +407,8 @@ class BattleGame:
                 },
                 {
                     "mp_gain": 1
-                }
-
+                },
+                {"buff", "permanent"}
             ),
             "valor": lambda duration = 3: Status(
                 "valor",
@@ -418,7 +423,8 @@ class BattleGame:
                     "display_text": "Valor",
                     "attack": 10,
                     "defense": 10
-                }
+                },
+                {"buff"}
             ),
         }
 
