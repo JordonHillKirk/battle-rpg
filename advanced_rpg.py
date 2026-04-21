@@ -327,6 +327,20 @@ class BattleGame:
         }
 
         self.status_defs = {
+            "burn": lambda duration = 5: Status(
+                "burn",
+                "Burn",
+                duration,
+                {
+                    "on_turn_end": self.burn_tick,
+                    "on_0_duration": lambda ctx, status: self.log(f"{ctx.user.pronouns["possessive"]} burn faded."),
+                },
+                {
+                    "display_text": "Burn"
+                },
+                {"debuff", "cleanseable"}
+
+            ),
             "poison": lambda duration = 5: Status(
                 "poison",
                 "Poison",
@@ -446,9 +460,6 @@ class BattleGame:
         self.select_enemy(e)
         self.running = True
         self.buttons = []
-        # self.special_active = False
-        # self.special_turn_count = 0
-        self.dragon_full = False
         self.ran_away = False
         self.battle_over = False
         if hasattr(self.player, "special_used"):
@@ -457,7 +468,7 @@ class BattleGame:
             self.player.get_status("sheep").data["first_sheep"] = True
         self.combat_log = []
         self.log_offset = 0  # for scrolling
-        self.max_log_lines = 4
+        self.max_log_lines = 6
         self.allow_forfeit = allow_forfeit
 
     def log(self, message):
@@ -1092,6 +1103,14 @@ class BattleGame:
 
     def poison_tick(self, ctx, status):
         self.log(f"{ctx.user.name} took {status.duration} Poison damage.")
+        ctx.user.take_damage(status.duration)
+        self.tick_status(ctx, status)
+
+    def burn(self, entity, val = 5):
+        self.add_status(entity, self.status_defs["burn"](val), False)
+
+    def burn_tick(self, ctx, status):
+        self.log(f"{ctx.user.name} took {status.duration} Burn damage.")
         ctx.user.take_damage(status.duration)
         self.tick_status(ctx, status)
 
