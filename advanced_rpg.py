@@ -865,10 +865,37 @@ class BattleGame:
             self.end_of_turn(self.enemy)
             return
 
-        if self.enemy.hp < 20 and "potion" in self.enemy.inventory:
-            self.enemy.inventory.remove("potion")
-            result = self.get_ability("potion")["func"](ctx)
-            self.log(f"{self.enemy.name} used a Potion! {result}")
+        # heal if low on hp and healing availale.
+        missing_hp = self.enemy.max_hp - self.enemy.hp
+        usable_heals = []
+
+        for ability_type, ability_id in self.get_enemy_abilities(self.enemy):
+            ability = self.get_ability(ability_id)
+
+            if "heal" not in ability.get("effect", []):
+                continue
+
+            cost = ability.get("cost", {})
+
+            if "mp" in cost and self.enemy.mp < cost["mp"]:
+                continue
+            if "item" in cost and self.enemy.inventory.count(ability_id) < cost["item"]:
+                continue
+
+            heal_value = ability.get("value", 0)
+
+            if missing_hp >= heal_value:
+                usable_heals.append((ability_type, ability_id, ability))
+
+        if usable_heals and self.enemy.hp <= 20:
+            ability_type, ability_id, ability = random.choice(usable_heals)
+
+            verb = self.text_formatter[ability_type]["verb"]
+            self.log(f"{self.enemy.name} {verb} {ability['name']}!")
+
+            self.execute_ability(ctx, ability, ability_id)
+            self.end_of_turn(ctx)
+            return
         else:
             abilities = self.get_usable_enemy_abilities(self.enemy)
 
@@ -885,7 +912,6 @@ class BattleGame:
 
         self.end_of_turn(ctx)
                 
-
     def get_enemy_abilities(self, enemy):
         abilities = []
 
@@ -1118,11 +1144,11 @@ class BattleGame:
 if __name__ == "__main__":
     game = BattleGame()
     game.run_battle()
-    game.battle_prep("Dragon")
+    game.battle_prep("Bandit")
     game.make_buttons()
     game.run_battle()
-    game.battle_prep("Dragon")
-    game.make_buttons()
-    game.run_battle()
+    # game.battle_prep("Dragon")
+    # game.make_buttons()
+    # game.run_battle()
     pygame.quit()
     sys.exit()
