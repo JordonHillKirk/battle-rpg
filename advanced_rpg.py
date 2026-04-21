@@ -865,7 +865,7 @@ class BattleGame:
             self.end_of_turn(self.enemy)
             return
 
-        # heal if low on hp and healing availale.
+        # heal if low on hp and healing available.
         missing_hp = self.enemy.max_hp - self.enemy.hp
         usable_heals = []
 
@@ -894,21 +894,18 @@ class BattleGame:
             self.log(f"{self.enemy.name} {verb} {ability['name']}!")
 
             self.execute_ability(ctx, ability, ability_id)
-            self.end_of_turn(ctx)
-            return
         else:
             abilities = self.get_usable_enemy_abilities(self.enemy)
 
             if not abilities:
                 self.log("The enemy hesitates...")
-                return
+            else:
+                ability_type, ability_id = random.choice(abilities)
+                ability = self.get_ability(ability_id)
 
-            ability_type, ability_id = random.choice(abilities)
-            ability = self.get_ability(ability_id)
-
-            verb = self.text_formatter[ability_type]["verb"] 
-            self.log(f"{self.enemy.name} {verb} {ability["name"]}!")
-            result = self.execute_ability(ctx, ability, ability_id)
+                verb = self.text_formatter[ability_type]["verb"] 
+                self.log(f"{self.enemy.name} {verb} {ability["name"]}!")
+                self.execute_ability(ctx, ability, ability_id)
 
         self.end_of_turn(ctx)
                 
