@@ -20,6 +20,7 @@ normal_areas = [
     {"name": "Goblin Toll", "func": goblin_toll, "type": "normal"},
     {"name": "Bandits", "func": bandits, "type": "normal"},
     {"name": "Coliseum", "func": coliseum_path, "type": "normal"},
+    {"name": "Garden Gate", "func": garden_gate, "type": "one_way_strict"},
 ]
 
 random_encounters = [
@@ -127,17 +128,16 @@ def validate_return_to_start(ctx):
 
         reachable.add(current)
 
-        # Traverse BOTH directions
+        # Traverse both directions
         neighbors = (
-            connections[current]["forward"] +
-            connections[current]["back"]
+            connections.get(current, {}).get("forward", []) +
+            connections.get(current, {}).get("back", [])
         )
 
         for n in neighbors:
             if n not in reachable:
                 stack.append(n)
 
-    # Check all nodes
     all_nodes = set(connections.keys())
     unreachable = all_nodes - reachable
 
@@ -148,6 +148,63 @@ def validate_return_to_start(ctx):
         return False
 
     print("✅ All areas can reach Start")
+    return True
+
+def can_escape_without(ctx, start, blocked):
+    areas = ctx.map.areas
+    connections = ctx.map.connections
+
+    visited = set()
+    stack = [start]
+
+    while stack:
+        current = stack.pop()
+
+        if current == 0:
+            return True
+
+        if current in visited:
+            continue
+        visited.add(current)
+
+        neighbors = []
+
+        # forward always allowed
+        neighbors.extend(connections.get(current, {}).get("forward", []))
+
+        # back only if current node is not strict one-way
+        if areas[current].get("type") != "one_way_strict":
+            neighbors.extend(connections.get(current, {}).get("back", []))
+
+        for n in neighbors:
+            if n == blocked:
+                continue
+            stack.append(n)
+
+    return False
+
+def validate_no_softlocks(ctx):
+    areas = ctx.map.areas
+    connections = ctx.map.connections
+
+    for i, node in enumerate(areas):
+        if node.get("type") == "one_way_strict":
+            forward_paths = connections[i]["forward"]
+
+            if not forward_paths:
+                print(f"❌ {node['name']} has no landing.")
+                return False
+
+            landing = forward_paths[0]
+
+            if not can_escape_without(ctx, landing, i):
+                print(
+                    f"❌ Softlock risk: "
+                    f"{node['name']} → {areas[landing]['name']}"
+                )
+                return False
+
+    print("✅ No softlocks detected")
     return True
 
 # --------------------------------------------------
@@ -259,7 +316,7 @@ def randomize_areas(ctx: GameContext):
             else:
                 connect(i, i + 1)
             
-        if validate_return_to_start:
+        if validate_return_to_start(ctx) and validate_no_softlocks(ctx):
             break
         print("Map generation failed.")
 
