@@ -73,7 +73,7 @@ def password_gate(ctx, kwargs):
 
     print("You come accross a large stone gate with an enscription:")
     print("\"Enter you may, if the password you say.\"")
-    print("\"Find the clues among the trees. Now you should be able to find them with ease.")
+    print("\"Find the clues among the trees. Now you should be able to find them with ease.\"")
     while True:
         guess = input(f"What is the password{display_letters(ctx)}: ")
         if guess.lower() == ctx.flags.password_gate_password.lower():

@@ -145,6 +145,8 @@ def init_player(ctx: GameContext):
         ctx.game.player.cha += 4
 
     ctx.game.player.dex = 3
+    if ctx.game.player.name == "Rogue":
+        ctx.game.player.dex = 6
 
 
 # --------------------------------------------------
