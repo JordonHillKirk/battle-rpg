@@ -61,7 +61,7 @@ def teleporter_trap_landing(ctx, kwargs):
         choice = input("Which do you choose? (1-2): ")
 
         if choice == "1":
-            print("\nYou procede down the path ahead of you")
+            print("\nYou proceed down the path ahead of you")
             return forward()
 
         elif choice == "2":
