@@ -315,7 +315,7 @@ class BattleGame:
                 "name": "Superior Poison",
                 "effect": ["status"],
                 "func": lambda ctx: ctx.game.poison(ctx.target, 15),
-                "hover": "Puts the enemy to sleep for 3 turns."
+                "hover": "Applies 15 Poison to the enemy."
             },
             "pass": {
                 "id": "pass",
