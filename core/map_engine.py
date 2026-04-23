@@ -350,6 +350,7 @@ def area(ctx: GameContext, num, dir, last_area):
     side_path = False
     node = ctx.map.areas[num]
     ctx.map.current_area = num
+    node_type = node.get("type", "normal")
 
     # --------------------------------------------------
     # VISIT TRACKING
@@ -367,7 +368,7 @@ def area(ctx: GameContext, num, dir, last_area):
     # --------------------------------------------------
     # BRANCHING AREA LOGIC
     # --------------------------------------------------
-    if node in branching_areas:
+    if node_type == "branch":
 
         # degenerate branch (both exits same)
         if ctx.map.connections[num]["forward"][0] == ctx.map.connections[num]["forward"][1]:
