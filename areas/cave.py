@@ -118,7 +118,7 @@ def dragon(ctx):
                         print("You fly off into the sunset. The end.")
                         victory(ctx)
                     else:
-                        print(" offensive.\nShe wants to bite off you head.")
+                        print(" offensive.\nShe wants to bite off your head.")
                         if not fight(ctx, "Dragon"):
                             return run_away()
                         dead_dragon(ctx)
