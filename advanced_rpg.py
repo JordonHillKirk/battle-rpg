@@ -332,7 +332,7 @@ class BattleGame:
                 duration,
                 {
                     "on_turn_end": self.burn_tick,
-                    "on_0_duration": lambda ctx, status: self.log(f"{ctx.user.pronouns["possessive"]} burn faded."),
+                    "on_0_duration": lambda ctx, status: self.log(f"{ctx.user.pronouns['possessive']} burn faded."),
                 },
                 {
                     "display_text": "Burn"
@@ -346,7 +346,7 @@ class BattleGame:
                 duration,
                 {
                     "on_turn_start": self.poison_tick,
-                    "on_0_duration": lambda ctx, status: self.log(f"{ctx.user.pronouns["possessive"]} poison faded."),
+                    "on_0_duration": lambda ctx, status: self.log(f"{ctx.user.pronouns['possessive']} poison faded."),
                 },
                 {
                     "display_text": "Poison"
@@ -389,7 +389,7 @@ class BattleGame:
                 {
                     "on_turn_start": self.tick_status,
                     "on_pre_damage": self.sheep_pre_damage,
-                    "on_0_duration": lambda ctx, status: self.log(f"{ctx.user.pronouns["possessive"]} sheep disappeared.")
+                    "on_0_duration": lambda ctx, status: self.log(f"{ctx.user.pronouns['possessive']} sheep disappeared.")
                 },
                 {
                     "display_text": "Sheepda",
@@ -682,7 +682,7 @@ class BattleGame:
                     max_damage = max(1, base_damage + 3)
                     hover = f"Damage: {min_damage}-{max_damage}"
                 if self.player.mp >= spell_mp:
-                    options.append((f"{spell["name"]} ({spell_mp} MP)", lambda s=spell_id: self.cast_spell(ctx, s), hover))
+                    options.append((f"{spell['name']} ({spell_mp} MP)", lambda s=spell_id: self.cast_spell(ctx, s), hover))
             options.append(("Back", self.go_back, None))
             
         elif self.menu == "items":
@@ -690,7 +690,7 @@ class BattleGame:
             items = list(set(self.player.inventory))
             for item_id in items:
                 item = self.get_ability(item_id)
-                options.append((f"{item["name"]} x{self.player.inventory.count(item_id)}", lambda i=item_id: self.use_item(ctx, i), item.get("hover")))
+                options.append((f"{item['name']} x{self.player.inventory.count(item_id)}", lambda i=item_id: self.use_item(ctx, i), item.get("hover")))
             options.append(("Back", self.go_back, None))
 
         elif self.menu == "special":
@@ -898,7 +898,7 @@ class BattleGame:
         if article != "":
             article = article(ability["name"])
 
-        self.log(f"{ctx.user.pronouns["subject"]} {verb} {article}{ability["name"]}!")
+        self.log(f"{ctx.user.pronouns['subject']} {verb} {article}{ability['name']}!")
         self.execute_ability(ctx, ability, self.selected_move)
         if self.battle_over:
             self.action = ""
@@ -962,7 +962,7 @@ class BattleGame:
                 ability = self.get_ability(ability_id)
 
                 verb = self.text_formatter[ability_type]["verb"] 
-                self.log(f"{self.enemy.name} {verb} {ability["name"]}!")
+                self.log(f"{self.enemy.name} {verb} {ability['name']}!")
                 self.execute_ability(ctx, ability, ability_id)
 
         self.end_of_turn(ctx)
