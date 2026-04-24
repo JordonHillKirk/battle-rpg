@@ -22,7 +22,7 @@ if __name__ == "__main__":
     ctx = GameContext(game)
 
     # CHARACTER SELECT
-    player = game.run_character_select()
+    game.run_character_select()
 
     # give player to RPG system
     init_player(ctx)

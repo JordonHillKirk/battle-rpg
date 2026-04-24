@@ -46,6 +46,7 @@ def draw_text(surface, text, x, y, color=(255,255,255)):
     rendered = font.render(text, True, color)
     surface.blit(rendered, (x, y))
 
+
 def draw_status(surface, entity, x, y):
     draw_text(surface, f"{entity.name}", x, y)
     draw_text(surface, f"HP: {entity.hp}/{entity.max_hp}", x, y + 30)
@@ -89,24 +90,15 @@ class Button:
 class BattleGame:
     def __init__(self):
         self.player = None
-        self.characters = {
-            "Hero": 1,
-            "Wizard": 2,
-            "Barbarian": 3,
-            "Tank": 4,
-            "Bard": 5,
-            "Rogue": 6,
-            # "Dev": 6
-        }
         self.selected_character = None
         self.in_character_select = True
 
         self.enemies = [
             Enemy("Goblin", "Goblin", 50, 10, 2, 0, 0, ["bite", "scratch", "surprise"]),
-            Enemy("Orc", "Orc", 80, 12, 4),
+            Enemy("Orc", "Orc", 80, 12, 4, 0, 0, ["slash"], [], []),
             Enemy("Orc Shaman", "Orc", 60, 14, 3, 20, 20, ["slash"], [], ["lambda"]),
-            Enemy("Orc Elite", "Orc", 100, 15, 5, 10, 10, ["heavy_strike"], [], ["lambda"]),
-            Enemy("Orc Champion", "Orc", 120, 18, 6, 20, 20, ["slash"], [], ["lambda"]),
+            Enemy("Orc Elite", "Orc", 100, 15, 5, 10, 10, ["heavy_strike"], [], [""]),
+            Enemy("Orc Champion", "Orc", 120, 18, 6, 20, 20, ["heavy_strike"], [], ["lambda"]),
             Enemy("Sneaky Orc", "Orc", 100, 15, 3, 0, 0, ["poison_blade"], [], []),
             Enemy("Dragon", "Dragon", 200, 20, 8, 0, 0, ["bite", "fire_breath"]),
             Enemy("Elder Dragon", "Dragon", 400, 25, 10, 0, 0, ["bite", "greater_fire_breath"]),
@@ -162,6 +154,13 @@ class BattleGame:
                 "effect": ["damage", "status"], 
                 "damage": lambda ctx: ctx.user.attack - ctx.target.defense - 5,
                 "func": lambda ctx: ctx.game.poison(ctx.target, 5)
+            },
+            "double_strike": {
+                "id": "double_strike",
+                "name": "Double Strike",
+                "effect": ["damage"],
+                "damage": lambda ctx: ctx.user.attack - ctx.target.defense - 2,
+                "hits": 2
             },
             "fireball": {
                 "id": "fireball",
@@ -557,13 +556,59 @@ class BattleGame:
         for button in self.buttons:
             button.check_hover(mouse_pos)
 
-    def make_character_select_buttons(self):
+    def make_character_select_buttons(self, characters):
         self.buttons.clear()
-        for i, player in enumerate(self.characters.keys()):
-            self.buttons.append(Button((300, 150 + i * 60, 200, 40), player, lambda p=player: self.select_character(self.characters[p])))
+        for i, character in enumerate(characters):
+            self.buttons.append(Button((300, 150 + i * 60, 200, 40), character["name"], lambda c=character: self.select_character(c)))
+
+    # def load_player_from_file(lineNum):
+    #     with open(getCurrentDirectory() + "characters.csv", 'r') as f:
+    #         data = {}
+    #         lines = f.readlines()
+    #         header = lines[0]
+    #         line = lines[lineNum]
+    #         keys = header.split(";")
+    #         values = line.split(";")
+    #         for i in range(len(keys)):
+    #             key = keys[i].strip()
+    #             value = values[i].strip()
+    #             if key in ["moves", "inventory", "spells"]:
+    #                 data[key] = value.split(',') if value.strip() != "" else []
+    #                 for i in range(len(data[key])):
+    #                     data[key][i] = data[key][i].strip()
+    #             elif key in ["hp", "max_hp", "attack", "defense", "magic", "mp", "max_mp"]:
+    #                 data[key] = int(value.strip())
+    #             else:
+    #                 data[key] = value.strip()
+    #         return data
+
+    def read_character_file(self):
+        with open(getCurrentDirectory() + "characters.csv", 'r') as f:
+            characters = []
+            lines = f.readlines()
+            header = lines[0]
+            keys = header.split(";")
+            for line in lines:
+                if line == lines[0]:
+                    continue
+                data = {}
+                values = line.split(";")
+                for i in range(len(keys)):
+                    key = keys[i].strip()
+                    value = values[i].strip()
+                    if key in ["moves", "inventory", "spells"]:
+                        data[key] = value.split(',') if value.strip() != "" else []
+                        for i in range(len(data[key])):
+                            data[key][i] = data[key][i].strip()
+                    elif key in ["hp", "max_hp", "attack", "defense", "magic", "mp", "max_mp"]:
+                        data[key] = int(value.strip())
+                    else:
+                        data[key] = value.strip()
+                characters.append(data)
+            return characters
 
     def select_character(self, character):
-        self.player = Player(**Player.load_player_from_file(character))
+        self.player = Player(**character)
         self.in_character_select = False
         self.running = False
 
@@ -574,7 +619,8 @@ class BattleGame:
         """
         self.in_character_select = True
         self.running = True
-        self.make_character_select_buttons()
+        characters = self.read_character_file()
+        self.make_character_select_buttons(characters)
 
         while self.running:
             screen.fill((0, 0, 0))
@@ -612,11 +658,13 @@ class BattleGame:
             for move_id in self.player.moves:
                 move = self.get_ability(move_id)
                 hover = move.get("hover", "")
-                if "damage" in move["effect"]:
+                if "damage" in move:
                     base_damage = move["damage"](ctx)
                     min_damage = max(0, base_damage - 3)
                     max_damage = max(0, base_damage + 3)
-                    hover += f"Damage: {min_damage}-{max_damage}"
+                    hover += f"Damage: {min_damage}-{max_damage} "
+                if "hits" in move:
+                    hover += f"(x{move['hits']}) "
                 if "status" in move["effect"]:
                     hover += "status move"
                 options.append((move["name"], lambda m=move_id: self.select_move(ctx, m), hover))
@@ -720,23 +768,37 @@ class BattleGame:
 
         if "damage" in ability:
             ctx.ability_id = ability_id
-            
-            pre = self.apply_status_event(ctx, ctx.target, "on_pre_damage")
 
-            if pre["blocked"]:
-                return
-            
-            damage = ability["damage"](ctx)
-            damage = floor(damage * pre["damage_multiplier"])
-            self.log(f"    {self.do_damage(ctx.target, damage)}")
+            hits = ability.get("hits", 1)
+            if callable(hits):
+                hits = hits()
 
-            # Attacker post-damage
-            attacker_ctx = EffectContext(self, ctx.user, ctx.target)
-            self.apply_status_event(attacker_ctx, ctx.user, "on_post_damage")
+            for hit in range(hits):
+                if not ctx.target.is_alive():
+                    break
 
-            # Defender post-damage
-            defender_ctx = EffectContext(self, ctx.target, ctx.user)
-            self.apply_status_event(defender_ctx, ctx.target, "on_post_damage")
+                pre = self.apply_status_event(ctx, ctx.target, "on_pre_damage")
+                if pre["blocked_all"]:
+                    break
+                if pre["blocked"]:
+                    continue
+
+                damage = ability["damage"](ctx)
+                damage = floor(damage * pre["damage_multiplier"])
+                
+                message = "    "
+                if hits > 1:
+                    message += f"Hit {hit+1}! "
+                message += f"{self.do_damage(ctx.target, damage)}"
+                self.log(message)
+
+                # Attacker post-damage
+                attacker_ctx = EffectContext(self, ctx.user, ctx.target)
+                self.apply_status_event(attacker_ctx, ctx.user, "on_post_damage")
+
+                # Defender post-damage
+                defender_ctx = EffectContext(self, ctx.target, ctx.user)
+                self.apply_status_event(defender_ctx, ctx.target, "on_post_damage")
 
         if "func" in ability:
             result = ability["func"](ctx)
@@ -776,10 +838,6 @@ class BattleGame:
                 screen.blit(popup_surface, popup_rect)
 
     def logic(self):
-        if self.in_character_select:
-            self.make_character_select_buttons()
-            return
-
         if self.turn == "player" and self.action:
             self.player_turn()
             
@@ -980,6 +1038,7 @@ class BattleGame:
 
     def apply_status_event(self, ctx, entity, event):
         result = {
+            "blocked_all": False,
             "blocked": False,
             "skip_turn": False,
             "end_battle": False,
@@ -1140,8 +1199,8 @@ class BattleGame:
 
 if __name__ == "__main__":
     game = BattleGame()
-    game.run_battle()
-    game.battle_prep("Bandit")
+    game.run_character_select()
+    game.battle_prep("Dragon")
     game.make_buttons()
     game.run_battle()
     # game.battle_prep("Dragon")

@@ -1,84 +1,84 @@
 area 0: Start
-forward: [1, 11]
+forward: [1, 2]
 back: []
 
-area 1: Traveling Merchant2
-forward: [2]
+area 1: Oasis
+forward: []
 back: [0]
 
 area 2: Traveling Merchant
 forward: [3]
-back: [1]
+back: [0]
 
-area 3: Letter Tree S
+area 3: Goblin Toll
 forward: [4]
 back: [2]
 
-area 4: Fork2
-forward: [5, 15]
+area 4: Actual Fork
+forward: [5]
 back: [3]
 
 area 5: Traveling Merchant2
 forward: [6]
 back: [4]
 
-area 6: Letter Tree N
+area 6: Garden Gate
 forward: [7]
 back: [5]
 
-area 7: Letter Tree E
+area 7: Coliseum
 forward: [8]
 back: [6]
 
-area 8: Letter Tree T
+area 8: Traveling Merchant2
 forward: [9]
 back: [7]
 
-area 9: Actual Fork
+area 9: Letter Tree O
 forward: [10]
 back: [8]
 
-area 10: Teleporter Trap
-forward: [15]
+area 10: Fork2
+forward: [11, 17]
 back: [9]
 
-area 11: Bandits
+area 11: Traveling Merchant
 forward: [12]
-back: [0]
+back: [10]
 
-area 12: Fork
-forward: [13, 14]
+area 12: Bandits
+forward: [13]
 back: [11]
 
-area 13: Coliseum
+area 13: Letter Tree S
 forward: [14]
 back: [12]
 
-area 14: Cave
-forward: []
-back: [12, 13]
+area 14: Fork
+forward: [15, 18]
+back: [13]
 
-area 15: Teleport Landing
+area 15: Letter Tree T
 forward: [16]
-back: [4]
+back: [14]
 
-area 16: Letter Tree O
-forward: [17]
+area 16: Teleporter Trap
+forward: [18]
 back: [15]
 
-area 17: Password Gate
-forward: [18]
-back: [16]
+area 17: Cave
+forward: []
+back: [10, 20]
 
-area 18: Goblin Toll
+area 18: Teleport Landing
 forward: [19]
-back: [17]
+back: [14]
 
-area 19: Traveling Merchant
+area 19: Letter Tree L
 forward: [20]
 back: [18]
 
-area 20: Oasis
-forward: []
+area 20: Password Gate
+forward: [17]
 back: [19]
 

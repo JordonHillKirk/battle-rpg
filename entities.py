@@ -78,27 +78,6 @@ class Player(Entity):
         self.hp = hp
         self.mp = mp
         self.special = special
-    
-    def load_player_from_file(lineNum):
-        with open(getCurrentDirectory() + "characters.csv", 'r') as f:
-            data = {}
-            lines = f.readlines()
-            header = lines[0]
-            line = lines[lineNum]
-            keys = header.split(";")
-            values = line.split(";")
-            for i in range(len(keys)):
-                key = keys[i].strip()
-                value = values[i].strip()
-                if key in ["moves", "inventory", "spells"]:
-                    data[key] = value.split(',') if value.strip() != "" else []
-                    for i in range(len(data[key])):
-                        data[key][i] = data[key][i].strip()
-                elif key in ["hp", "max_hp", "attack", "defense", "magic", "mp", "max_mp"]:
-                    data[key] = int(value.strip())
-                else:
-                    data[key] = value.strip()
-            return data
         
 class Enemy(Entity):
     def __init__(self, name, species, hp, attack, defense, magic = 0, mp = 0, moves = ["scratch"], inventory = [], spells = []):
