@@ -3,5 +3,5 @@ Hero;100;100;15;5;25;30;30;valor;slash,heavy_strike;potion,potion,power_boost;fi
 Wizard;20;20;10;2;50;200;200;sheepda;slash;;fireball,ice_spike,lambda,magic_up
 Barbarian;150;150;20;0;5;2;2;rage;slash,heavy_strike;power_boost,power_boost;
 Tank;5;5;15;200;20;10;10;armorup;slash,heavy_strike;;lambda
-Bard;80;80;15;4;30;50;50;sleep;slash,heavy_strike;potion,Mana potion,magic_boost;ice_spike,lambda,magic_up
+Bard;80;80;15;4;30;50;50;sleep;slash,heavy_strike;potion,mana_potion,magic_boost;ice_spike,lambda,magic_up
 Rogue;100;100;15;5;20;10;10;superior_poison;poison_blade;super_potion,smoke_bomb;
