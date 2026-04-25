@@ -13,3 +13,4 @@ class Status:
             handler = self.handlers.get("on_0_duration")
             if handler:
                 handler(ctx, self)
+            
