@@ -47,7 +47,6 @@ def draw_text(surface, text, x, y, color=(255,255,255)):
     rendered = font.render(text, True, color)
     surface.blit(rendered, (x, y))
 
-
 def draw_status(surface, entity, x, y):
     draw_text(surface, f"{entity.name}", x, y)
     draw_text(surface, f"HP: {entity.hp}/{entity.max_hp}", x, y + 30)
@@ -343,27 +342,6 @@ class BattleGame:
         self.buttons.clear()
         for i, character in enumerate(characters):
             self.buttons.append(Button((300, 150 + i * 60, 200, 40), character["name"], lambda c=character: self.select_character(c)))
-
-    # def load_player_from_file(lineNum):
-    #     with open(getCurrentDirectory() + "characters.csv", 'r') as f:
-    #         data = {}
-    #         lines = f.readlines()
-    #         header = lines[0]
-    #         line = lines[lineNum]
-    #         keys = header.split(";")
-    #         values = line.split(";")
-    #         for i in range(len(keys)):
-    #             key = keys[i].strip()
-    #             value = values[i].strip()
-    #             if key in ["moves", "inventory", "spells"]:
-    #                 data[key] = value.split(',') if value.strip() != "" else []
-    #                 for i in range(len(data[key])):
-    #                     data[key][i] = data[key][i].strip()
-    #             elif key in ["hp", "max_hp", "attack", "defense", "magic", "mp", "max_mp"]:
-    #                 data[key] = int(value.strip())
-    #             else:
-    #                 data[key] = value.strip()
-    #         return data
 
     def read_character_file(self):
         with open(getCurrentDirectory() + "characters.csv", 'r') as f:
@@ -706,6 +684,14 @@ class BattleGame:
             self.end_of_turn(self.enemy)
             return
 
+        if self.enemy.hp <=self.enemy.max_hp / 2 and getattr(self.enemy, "special", None):
+            ability_id = self.enemy.special
+            ability = self.get_ability(ability_id)
+            verb = self.text_formatter["special"]["verb"]
+            self.log(f"{self.enemy.name} {verb} {ability['name']}!")
+            self.execute_ability(ctx, ability, ability_id)
+            self.enemy.special = None
+
         # heal if low on hp and healing available.
         missing_hp = self.enemy.max_hp - self.enemy.hp
         usable_heals = []
@@ -984,6 +970,7 @@ if __name__ == "__main__":
     game = BattleGame()
     game.run_character_select()
     game.battle_prep("Dragon")
+    game.enemy.special = "lambda"
     game.make_buttons()
     game.run_battle()
     # game.battle_prep("Dragon")
