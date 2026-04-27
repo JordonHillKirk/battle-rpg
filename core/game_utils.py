@@ -120,18 +120,6 @@ def heal_mp(ctx: GameContext, val: int = None):
         ctx.game.player.mp = ctx.game.player.max_mp
 
 def cleanse_debuff_statuses(ctx) -> None:
-    # ctx.game.player.add_status(Status(
-    #             "poison",
-    #             "Poison",
-    #             1,
-    #             {
-                    
-    #             },
-    #             {
-    #                 "display_text": "Poison"
-    #             },
-    #             {"debuff", "cleansable"}
-    #         ))
     for status in list(ctx.game.player.statuses):
         print(status.name)
         if "debuff" in status.tags and "cleansable" in status.tags:
