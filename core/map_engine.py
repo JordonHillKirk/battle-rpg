@@ -240,11 +240,39 @@ def validate_no_softlocks(ctx, verbose=True):
         print("✅ No softlocks detected")
     return True
 
-def validate_password_gate_access(ctx, verbose=True):
+def validate_password_gate_access(ctx, verbose = False):
     areas = ctx.map.areas
     connections = ctx.map.connections
 
-    # find password gate
+    # ----------------------------
+    # Helper: traverse graph
+    # ----------------------------
+    def traverse(starts, blocked=None):
+        visited = set()
+        stack = list(starts)
+
+        while stack:
+            current = stack.pop()
+
+            if current in visited:
+                continue
+            visited.add(current)
+
+            neighbors = (
+                connections.get(current, {}).get("forward", []) +
+                connections.get(current, {}).get("back", [])
+            )
+
+            for n in neighbors:
+                if n == blocked:
+                    continue
+                stack.append(n)
+
+        return visited
+
+    # ----------------------------
+    # Find password gate
+    # ----------------------------
     gates = [
         i for i, node in enumerate(areas)
         if node["name"] == "Password Gate"
@@ -255,35 +283,44 @@ def validate_password_gate_access(ctx, verbose=True):
 
     gate_index = gates[0]
 
-    # traverse from the gate's "backward" side
-    visited = set()
-    stack = connections[gate_index]["back"][:]
+    back_side = connections[gate_index]["back"]
+    front_side = connections[gate_index]["forward"]
 
-    while stack:
-        current = stack.pop()
+    # ----------------------------
+    # Check clue-side access
+    # ----------------------------
+    back_reachable = traverse(back_side, blocked=gate_index)
 
-        if current in visited:
-            continue
-        visited.add(current)
-
-        neighbors = (
-            connections.get(current, {}).get("forward", []) +
-            connections.get(current, {}).get("back", [])
-        )
-
-        for n in neighbors:
-            if n not in visited:
-                stack.append(n)
-
-    # all clue trees must be reachable
     for i, node in enumerate(areas):
-        if node.get("is_password_tree") and i not in visited:
+        if node.get("is_password_tree") and i not in back_reachable:
             if verbose:
                 print(
                     f"❌ Password softlock: "
-                    f"{node['name']} unreachable after turning back from gate."
+                    f"{node['name']} unreachable from clue side."
                 )
             return False
+
+    # ----------------------------
+    # Check front-side access
+    # ----------------------------
+    front_reachable = traverse(front_side, blocked=gate_index)
+
+    all_trees_reachable = all(
+        i in front_reachable
+        for i, node in enumerate(areas)
+        if node.get("is_password_tree")
+    )
+
+    can_reach_start = 0 in front_reachable
+
+    if not all_trees_reachable and not can_reach_start:
+        if verbose:
+            print(
+                "❌ Password softlock: "
+                "approaching gate from front traps player."
+            )
+        return False
+    
     if verbose:
         print("✅ All password clues remain reachable")
     return True
