@@ -1,3 +1,4 @@
+import copy
 import random
 
 from core.area_utils import back, forward
@@ -24,7 +25,110 @@ def create_password_gate_areas(ctx):
             "is_password_tree": True,
         })
 
-    return areas
+    return {"areas": areas}
+
+def position_password_gate(ctx, areas, node):
+    tree_indices = [
+        n["index"]
+        for n in areas
+        if n.get("is_password_tree")
+    ]
+
+    if not tree_indices:
+        return
+
+    max_tree_index = max(tree_indices)
+
+    gate = copy.deepcopy(node)
+    gate.pop("post_insert", None)  # prevent recursion if needed
+
+    areas.remove(node)             # remove original
+    areas.insert(max_tree_index + 1, gate)
+
+def validate_password_gate_access(ctx, verbose = False):
+    areas = ctx.map.areas
+    connections = ctx.map.connections
+
+    # ----------------------------
+    # Helper: traverse graph
+    # ----------------------------
+    def traverse(starts, blocked=None):
+        visited = set()
+        stack = list(starts)
+
+        while stack:
+            current = stack.pop()
+
+            if current in visited:
+                continue
+            visited.add(current)
+
+            neighbors = (
+                connections.get(current, {}).get("forward", []) +
+                connections.get(current, {}).get("back", [])
+            )
+
+            for n in neighbors:
+                if n == blocked:
+                    continue
+                stack.append(n)
+
+        return visited
+
+    # ----------------------------
+    # Find password gate
+    # ----------------------------
+    gates = [
+        i for i, node in enumerate(areas)
+        if node["name"] == "Password Gate"
+    ]
+
+    if not gates:
+        return True
+
+    gate_index = gates[0]
+
+    back_side = connections[gate_index]["back"]
+    front_side = connections[gate_index]["forward"]
+
+    # ----------------------------
+    # Check clue-side access
+    # ----------------------------
+    back_reachable = traverse(back_side, blocked=gate_index)
+
+    for i, node in enumerate(areas):
+        if node.get("is_password_tree") and i not in back_reachable:
+            if verbose:
+                print(
+                    f"❌ Password softlock: "
+                    f"{node['name']} unreachable from clue side."
+                )
+            return False
+
+    # ----------------------------
+    # Check front-side access
+    # ----------------------------
+    front_reachable = traverse(front_side, blocked=gate_index)
+
+    all_trees_reachable = all(
+        i in front_reachable
+        for i, node in enumerate(areas)
+        if node.get("is_password_tree")
+    )
+
+    can_reach_start = 0 in front_reachable
+
+    if not all_trees_reachable and not can_reach_start:
+        if verbose:
+            print(
+                "❌ Password softlock: "
+                "approaching gate from front traps player."
+            )
+        return False
+    
+    if verbose:
+        print("✅ All password clues remain reachable")
+    return True
 
 def get_letter(ctx, i):
     return ctx.flags.password_gate_password[i].upper()

@@ -21,6 +21,8 @@ normal_areas = [
     {"name": "Bandits", "func": bandits, "type": "normal"},
     {"name": "Coliseum", "func": coliseum_path, "type": "normal"},
     {"name": "Garden Gate", "func": garden_gate, "type": "one_way_strict"},
+    {"name": "Password Gate", "func": password_gate, "type": "normal", "setup": create_password_gate_areas, "post_insert": position_password_gate, "validator": validate_password_gate_access
+}
 ]
 
 random_encounters = [
@@ -60,8 +62,6 @@ one_way_from_areas = [
         "target": teleport_landing
     }
 ]
-
-password_gate_area = {"name": "Password Gate", "func": password_gate, "type": "normal"}
 
 # --------------------------------------------------
 # DEBUG OUTPUT
@@ -240,91 +240,6 @@ def validate_no_softlocks(ctx, verbose=True):
         print("✅ No softlocks detected")
     return True
 
-def validate_password_gate_access(ctx, verbose = False):
-    areas = ctx.map.areas
-    connections = ctx.map.connections
-
-    # ----------------------------
-    # Helper: traverse graph
-    # ----------------------------
-    def traverse(starts, blocked=None):
-        visited = set()
-        stack = list(starts)
-
-        while stack:
-            current = stack.pop()
-
-            if current in visited:
-                continue
-            visited.add(current)
-
-            neighbors = (
-                connections.get(current, {}).get("forward", []) +
-                connections.get(current, {}).get("back", [])
-            )
-
-            for n in neighbors:
-                if n == blocked:
-                    continue
-                stack.append(n)
-
-        return visited
-
-    # ----------------------------
-    # Find password gate
-    # ----------------------------
-    gates = [
-        i for i, node in enumerate(areas)
-        if node["name"] == "Password Gate"
-    ]
-
-    if not gates:
-        return True
-
-    gate_index = gates[0]
-
-    back_side = connections[gate_index]["back"]
-    front_side = connections[gate_index]["forward"]
-
-    # ----------------------------
-    # Check clue-side access
-    # ----------------------------
-    back_reachable = traverse(back_side, blocked=gate_index)
-
-    for i, node in enumerate(areas):
-        if node.get("is_password_tree") and i not in back_reachable:
-            if verbose:
-                print(
-                    f"❌ Password softlock: "
-                    f"{node['name']} unreachable from clue side."
-                )
-            return False
-
-    # ----------------------------
-    # Check front-side access
-    # ----------------------------
-    front_reachable = traverse(front_side, blocked=gate_index)
-
-    all_trees_reachable = all(
-        i in front_reachable
-        for i, node in enumerate(areas)
-        if node.get("is_password_tree")
-    )
-
-    can_reach_start = 0 in front_reachable
-
-    if not all_trees_reachable and not can_reach_start:
-        if verbose:
-            print(
-                "❌ Password softlock: "
-                "approaching gate from front traps player."
-            )
-        return False
-    
-    if verbose:
-        print("✅ All password clues remain reachable")
-    return True
-
 # --------------------------------------------------
 # MAP RANDOMIZATION
 # --------------------------------------------------
@@ -349,8 +264,25 @@ def randomize_areas(ctx: GameContext, verbose = False):
     def find_area_index(a):
         return next(idx for idx, node in enumerate(areas) if node["name"] == a["name"])
     
-    #initialize password gate areas
-    password_tree_areas = create_password_gate_areas(ctx)
+    generated_areas = []
+    generated_endpoints = []
+
+    all_area_defs = (
+        normal_areas
+        + random_encounters
+        + branching_areas
+        + one_way_to_areas
+        + one_way_from_areas
+        + endpoint_areas
+    )
+
+    # get additional areas from any areas with setup
+    for node in all_area_defs:
+        if "setup" in node:
+            result = node["setup"](ctx)
+
+            generated_areas.extend(result.get("areas", []))
+            generated_endpoints.extend(result.get("endpoints", []))
 
     while True:
         areas = []
@@ -364,11 +296,12 @@ def randomize_areas(ctx: GameContext, verbose = False):
         areas.extend(copy.deepcopy(random_encounters))
         areas.extend(copy.deepcopy(branching_areas))
         areas.extend(copy.deepcopy(one_way_to_areas))
-        areas.extend(copy.deepcopy(password_tree_areas))
+        areas.extend(copy.deepcopy(generated_areas))
 
         endpoints.extend(copy.deepcopy(endpoint_areas))
         endpoints.extend(copy.deepcopy(dummy_endpoints))
         endpoints.extend(copy.deepcopy(one_way_from_areas))
+        endpoints.extend(copy.deepcopy(generated_endpoints))
 
         random.shuffle(endpoints)
 
@@ -381,21 +314,17 @@ def randomize_areas(ctx: GameContext, verbose = False):
         # assign indices
         for i, node in enumerate(areas):
             node["index"] = i
-        
-        # insert password gate
-        max_tree_index = max(
-            node["index"]
-            for node in areas
-            if node.get("is_password_tree")
-        )
-        gate_index = max_tree_index + 1
-        areas.insert(gate_index, copy.deepcopy(password_gate_area))
 
         # insert endpoints for branches
         for i, branch in enumerate(branching_areas, start=1):
             branch_index = find_area_index(branch)
             insert_index = random.randint(branch_index + 1, len(areas))
             areas.insert(insert_index, endpoints[i])
+
+        # run post-insert hooks
+        for node in list(areas):
+            if "post_insert" in node:
+                node["post_insert"](ctx, areas, node)
 
         # final endpoint
         areas.append(endpoints[-1])
@@ -437,7 +366,13 @@ def randomize_areas(ctx: GameContext, verbose = False):
         ctx.map.areas = areas
         ctx.map.endpoints = endpoints
         ctx.map.connections = connections
-        if validate_return_to_start(ctx, verbose) and validate_no_softlocks(ctx, verbose) and validate_password_gate_access(ctx, verbose):
+        validators = [validate_return_to_start, validate_no_softlocks]
+        for node in areas:
+            if "validator" in node:
+                validators.append(node["validator"])
+
+        all_valid = all(v(ctx, verbose = False) for v in set(validators))
+        if all_valid:
             break
         if verbose:
             print("Map generation failed.")
