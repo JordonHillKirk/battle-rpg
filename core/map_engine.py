@@ -74,6 +74,36 @@ def print_connections(areas, conns):
             f.write(f"forward: {conns[node]['forward']}\n")
             f.write(f"back: {conns[node]['back']}\n\n")
 
+def stress_test_maps(ctx, runs=1000):
+    failures = {
+        "return_to_start": 0,
+        "softlock": 0,
+        "password_gate": 0,
+    }
+
+    for i in range(runs):
+        randomize_areas(ctx)
+
+        ok_return = validate_return_to_start(ctx, False)
+        ok_softlock = validate_no_softlocks(ctx, False)
+        ok_password = validate_password_gate_access(ctx, False)
+
+        if not ok_return:
+            failures["return_to_start"] += 1
+        elif not ok_softlock:
+            failures["softlock"] += 1
+        elif not ok_password:
+            failures["password_gate"] += 1
+
+        else:
+            print(f"Run {i+1}: OK")
+
+    print("\n--- STRESS TEST RESULTS ---")
+    print(f"Total runs: {runs}")
+    print(f"Return-to-start failures: {failures['return_to_start']}")
+    print(f"Softlock failures: {failures['softlock']}")
+    print(f"Password gate failures: {failures['password_gate']}")
+
 def visualize_map(ctx):
     areas = ctx.map.areas
     connections = ctx.map.connections
@@ -113,7 +143,7 @@ def visualize_map(ctx):
     print("\nMAP VISUALIZATION:")
     dfs(0)
    
-def validate_return_to_start(ctx):
+def validate_return_to_start(ctx, verbose=True):
     areas = ctx.map.areas
     connections = ctx.map.connections
 
@@ -142,12 +172,13 @@ def validate_return_to_start(ctx):
     unreachable = all_nodes - reachable
 
     if unreachable:
-        print("❌ These areas cannot return to Start:")
-        for i in unreachable:
-            print(f"- {areas[i]['name']} (#{i})")
-        return False
-
-    print("✅ All areas can reach Start")
+        if verbose:
+            print("❌ These areas cannot return to Start:")
+            for i in unreachable:
+                print(f"- {areas[i]['name']} (#{i})")
+            return False
+    if verbose:
+        print("✅ All areas can reach Start")
     return True
 
 def can_escape_without(ctx, start, blocked):
@@ -183,7 +214,7 @@ def can_escape_without(ctx, start, blocked):
 
     return False
 
-def validate_no_softlocks(ctx):
+def validate_no_softlocks(ctx, verbose=True):
     areas = ctx.map.areas
     connections = ctx.map.connections
 
@@ -192,26 +223,76 @@ def validate_no_softlocks(ctx):
             forward_paths = connections[i]["forward"]
 
             if not forward_paths:
-                print(f"❌ {node['name']} has no landing.")
+                if verbose:
+                    print(f"❌ {node['name']} has no landing.")
                 return False
 
             landing = forward_paths[0]
 
             if not can_escape_without(ctx, landing, i):
-                print(
-                    f"❌ Softlock risk: "
-                    f"{node['name']} → {areas[landing]['name']}"
-                )
+                if verbose:
+                    print(
+                        f"❌ Softlock risk: "
+                        f"{node['name']} → {areas[landing]['name']}"
+                    )
                 return False
+    if verbose:
+        print("✅ No softlocks detected")
+    return True
 
-    print("✅ No softlocks detected")
+def validate_password_gate_access(ctx, verbose=True):
+    areas = ctx.map.areas
+    connections = ctx.map.connections
+
+    # find password gate
+    gates = [
+        i for i, node in enumerate(areas)
+        if node["name"] == "Password Gate"
+    ]
+
+    if not gates:
+        return True
+
+    gate_index = gates[0]
+
+    # traverse from the gate's "backward" side
+    visited = set()
+    stack = connections[gate_index]["back"][:]
+
+    while stack:
+        current = stack.pop()
+
+        if current in visited:
+            continue
+        visited.add(current)
+
+        neighbors = (
+            connections.get(current, {}).get("forward", []) +
+            connections.get(current, {}).get("back", [])
+        )
+
+        for n in neighbors:
+            if n not in visited:
+                stack.append(n)
+
+    # all clue trees must be reachable
+    for i, node in enumerate(areas):
+        if node.get("is_password_tree") and i not in visited:
+            if verbose:
+                print(
+                    f"❌ Password softlock: "
+                    f"{node['name']} unreachable after turning back from gate."
+                )
+            return False
+    if verbose:
+        print("✅ All password clues remain reachable")
     return True
 
 # --------------------------------------------------
-# MAP RANDOMIZATION (RESTORED)
+# MAP RANDOMIZATION
 # --------------------------------------------------
 
-def randomize_areas(ctx: GameContext):
+def randomize_areas(ctx: GameContext, verbose = False):
 
     def connect(from_area, to_area, one_way=False):
         to_node = areas[to_area]
@@ -246,7 +327,7 @@ def randomize_areas(ctx: GameContext):
         areas.extend(copy.deepcopy(random_encounters))
         areas.extend(copy.deepcopy(branching_areas))
         areas.extend(copy.deepcopy(one_way_to_areas))
-        areas.extend(password_tree_areas)
+        areas.extend(copy.deepcopy(password_tree_areas))
 
         endpoints.extend(copy.deepcopy(endpoint_areas))
         endpoints.extend(copy.deepcopy(dummy_endpoints))
@@ -271,7 +352,7 @@ def randomize_areas(ctx: GameContext):
             if node.get("is_password_tree")
         )
         gate_index = max_tree_index + 1
-        areas.insert(gate_index, password_gate_area)
+        areas.insert(gate_index, copy.deepcopy(password_gate_area))
 
         # insert endpoints for branches
         for i, branch in enumerate(branching_areas, start=1):
@@ -315,15 +396,17 @@ def randomize_areas(ctx: GameContext):
 
             else:
                 connect(i, i + 1)
-            
-        if validate_return_to_start(ctx) and validate_no_softlocks(ctx):
+        
+        ctx.map.areas = areas
+        ctx.map.endpoints = endpoints
+        ctx.map.connections = connections
+        if validate_return_to_start(ctx, verbose) and validate_no_softlocks(ctx, verbose) and validate_password_gate_access(ctx, verbose):
             break
-        print("Map generation failed.")
+        if verbose:
+            print("Map generation failed.")
 
     print_connections(areas, connections)
-    ctx.map.areas = areas
-    ctx.map.endpoints = endpoints
-    ctx.map.connections = connections
+    
     ctx.map.visited = []
     for node in areas:
         if node.get("type") == "dummy":
@@ -503,3 +586,6 @@ def main(ctx):
         current, direction, last_area = area(
             ctx, current, direction, last_area
         )
+
+if __name__ == "__main__":
+    pass
