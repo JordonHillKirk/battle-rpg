@@ -35,27 +35,27 @@ class Entity:
     def restore_hp(self, val):
         healed = min(self.max_hp, self.hp + val) - self.hp
         self.hp += healed
-        return f"{self.pronouns["subject"]} restored {healed} HP."
+        return f"{self.pronouns['subject']} restored {healed} HP."
 
     def restore_mp(self, val):
         healed = min(self.max_mp, self.mp + val) - self.mp
         self.mp += healed
-        return f"{self.pronouns["subject"]} restored {healed} MP."
+        return f"{self.pronouns['subject']} restored {healed} MP."
 
     def modify_attack(self, val):
         self.attack = self.attack + val
         self.attack_mod += val
-        return f"{self.pronouns["possessive"]} Attack {'decreased' if val < 0 else 'increased'} by {val}."
+        return f"{self.pronouns['possessive']} Attack {'decreased' if val < 0 else 'increased'} by {val}."
 
     def modify_defense(self, val):
         self.defense = self.defense + val
         self.defense_mod += val
-        return f"{self.pronouns["possessive"]} Defense {'decreased' if val < 0 else 'increased'} by {val}."
+        return f"{self.pronouns['possessive']} Defense {'decreased' if val < 0 else 'increased'} by {val}."
     
     def modify_magic(self, val):
         self.magic = self.magic + val
         self.magic_mod += val
-        return f"{self.pronouns["possessive"]} Magic {'decreased' if val < 0 else 'increased'} by {val}."
+        return f"{self.pronouns['possessive']} Magic {'decreased' if val < 0 else 'increased'} by {val}."
 
     def get_status(self, id):
         for s in self.statuses:
@@ -78,27 +78,6 @@ class Player(Entity):
         self.hp = hp
         self.mp = mp
         self.special = special
-    
-    def load_player_from_file(lineNum):
-        with open(getCurrentDirectory() + "characters.csv", 'r') as f:
-            data = {}
-            lines = f.readlines()
-            header = lines[0]
-            line = lines[lineNum]
-            keys = header.split(";")
-            values = line.split(";")
-            for i in range(len(keys)):
-                key = keys[i].strip()
-                value = values[i].strip()
-                if key in ["moves", "inventory", "spells"]:
-                    data[key] = value.split(',') if value.strip() != "" else []
-                    for i in range(len(data[key])):
-                        data[key][i] = data[key][i].strip()
-                elif key in ["hp", "max_hp", "attack", "defense", "magic", "mp", "max_mp"]:
-                    data[key] = int(value.strip())
-                else:
-                    data[key] = value.strip()
-            return data
         
 class Enemy(Entity):
     def __init__(self, name, species, hp, attack, defense, magic = 0, mp = 0, moves = ["scratch"], inventory = [], spells = []):
