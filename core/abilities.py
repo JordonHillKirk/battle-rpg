@@ -39,7 +39,7 @@ abilities = {
                 "id": "surprise",
                 "name": "Surprise",
                 "effect": ["status"], 
-                "func": lambda ctx: ctx.target.modify_defense(-2)
+                "func": lambda ctx: ctx.game.decrease_stat(ctx.target, "defense", -2)
             },
             "poison_blade": {
                 "id": "poison_blade",
@@ -92,7 +92,7 @@ abilities = {
                 "cost": {
                     "mp": 20, 
                 },
-                "func": lambda ctx: ctx.user.modify_magic(10), 
+                "func": lambda ctx: ctx.game.increase_stat(ctx.user, "magic", 10), 
                 "hover": "+10 Magic"
             },
             "potion": {
@@ -134,7 +134,7 @@ abilities = {
                 "cost": {
                     "item": 1, 
                 },
-                "func": lambda ctx: ctx.user.modify_attack(5), 
+                "func": lambda ctx: ctx.game.increase_stat(ctx.user, "attack", 10), 
                 "hover": "+5 Attack"
             },
             "magic_boost": {
@@ -144,7 +144,7 @@ abilities = {
                 "cost": {
                     "item": 1, 
                 },
-                "func": lambda ctx: ctx.user.modify_magic(10), 
+                "func": lambda ctx: ctx.game.increase_stat(ctx.user, "magic", 10), 
                 "hover": "+10 Magic"
             },
             "dragon_bane": {

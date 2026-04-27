@@ -108,6 +108,32 @@ class BattleGame:
         self.abilities = abilities
 
         self.status_defs = {
+            "stats_up": lambda: Status(
+                "stats_up",
+                "Stats Up",
+                1,
+                {},
+                {
+                    "attack": 0,
+                    "defense": 0,
+                    "magic": 0,
+                },
+                {"buff"}
+            ),
+            "stats_down": lambda: Status(
+                "stats_down",
+                "Stats Down",
+                1,
+                {
+                    "on_battle_end": self.tick_status
+                },
+                {
+                    "attack": 0,
+                    "defense": 0,
+                    "magic": 0,
+                },
+                {"debuff", "cleanseable"}
+            ),
             "burn": lambda duration = 5: Status(
                 "burn",
                 "Burn",
@@ -210,9 +236,8 @@ class BattleGame:
                 "Valor",
                 duration,
                 {
-                    "on_apply": self.valor_apply,
                     "on_turn_start": self.tick_status,
-                    "on_0_duration": self.valor_end
+                    "on_0_duration": lambda ctx, status: self.log(f"{ctx.user.name}'s Valor wore off.")
                 },
                 {
                     "display_text": "Valor",
@@ -620,6 +645,7 @@ class BattleGame:
 
     def end_battle(self):
         self.battle_over = True
+        self.end_of_battle()
         self.turn = "player"
         self.set_menu("quit")
 
@@ -791,6 +817,13 @@ class BattleGame:
         pygame.display.flip()
         pygame.time.delay(1000)
 
+    def end_of_battle(self):
+        ctx = EffectContext(self, self.player, self.enemy)
+        self.apply_status_event(ctx, self.player, "on_battle_end")
+        self.apply_status_event(ctx, self.enemy, "on_battle_end")
+        self.cleanup_statuses(self.player)
+        self.cleanup_statuses(self.enemy)
+
     def add_status(self, entity, status, replace_duration = True):
         existing = entity.get_status(status.id)
 
@@ -865,8 +898,7 @@ class BattleGame:
             return "But it had no effect."
     
     def summon_sheep(self, user, attacks = 0):
-        template = self.status_defs["sheep"]()
-        status = template
+        status = self.status_defs["sheep"]()
         if attacks != 0:
             status.duration = attacks
         user.statuses.append(status)
@@ -902,8 +934,8 @@ class BattleGame:
         self.log(f"    {ctx.user.name}'s Attack and Defense increased!")
 
     def valor_end(self, ctx, status):
-        ctx.user.modify_attack(-status.data["attack"])
-        ctx.user.modify_defense(-status.data["attack"])
+        # ctx.user.modify_attack(-status.data["attack"])
+        # ctx.user.modify_defense(-status.data["attack"])
         self.log(f"{ctx.user.name}'s Valor wore off.")
 
     def rage(self, user):
@@ -965,16 +997,28 @@ class BattleGame:
         ctx.user.take_damage(status.duration)
         self.tick_status(ctx, status)
 
+    def increase_stat(self, entity, stat, val):
+        status = self.status_defs["stats_up"]()
+        status.data[stat] = val
+        entity.statuses.append(status)
+        return f"{entity.pronouns['possessive']} {stat} increased by {val}."
+
+    def decrease_stat(self, entity, stat, val):
+        status = self.status_defs["stats_down"]()
+        status.data[stat] = val
+        entity.statuses.append(status)
+        return f"{entity.pronouns['possessive']} {stat} decreased by {val}."
+
 
 if __name__ == "__main__":
     game = BattleGame()
     game.run_character_select()
-    game.battle_prep("Dragon")
-    game.enemy.special = "lambda"
+    game.battle_prep("Goblin")
+    # game.enemy.special = "lambda"
     game.make_buttons()
     game.run_battle()
-    # game.battle_prep("Dragon")
-    # game.make_buttons()
-    # game.run_battle()
+    game.battle_prep("Goblin")
+    game.make_buttons()
+    game.run_battle()
     pygame.quit()
     sys.exit()

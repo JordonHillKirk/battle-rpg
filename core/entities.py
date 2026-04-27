@@ -9,12 +9,9 @@ class Entity:
         self.pronouns = pronouns
         self.hp = hp
         self.max_hp = hp
-        self.attack = attack
-        self.attack_mod = 0
-        self.defense = defense
-        self.defense_mod = 0
-        self.magic = magic
-        self.magic_mod = 0
+        self.base_attack = attack
+        self.base_defense = defense
+        self.base_magic = magic
         self.mp = mp
         self.max_mp = mp
         self.moves = moves
@@ -23,6 +20,30 @@ class Entity:
         self.special_used = False
         self.sleep_duration = 0
         self.statuses = []
+
+    @property
+    def attack(self):
+        return self.base_attack + sum(
+            s.data.get("attack", 0)
+            for s in self.statuses
+            if s.duration != 0
+        )
+
+    @property
+    def defense(self):
+        return self.base_defense + sum(
+            s.data.get("defense", 0)
+            for s in self.statuses
+            if s.duration != 0
+        )
+
+    @property
+    def magic(self):
+        return self.base_magic + sum(
+            s.data.get("magic", 0)
+            for s in self.statuses
+            if s.duration != 0
+        )
 
     def is_alive(self):
         return self.hp > 0
@@ -43,18 +64,15 @@ class Entity:
         return f"{self.pronouns['subject']} restored {healed} MP."
 
     def modify_attack(self, val):
-        self.attack = self.attack + val
-        self.attack_mod += val
+        self.base_attack = self.base_attack + val
         return f"{self.pronouns['possessive']} Attack {'decreased' if val < 0 else 'increased'} by {val}."
 
     def modify_defense(self, val):
-        self.defense = self.defense + val
-        self.defense_mod += val
+        self.base_defense = self.base_defense + val
         return f"{self.pronouns['possessive']} Defense {'decreased' if val < 0 else 'increased'} by {val}."
     
     def modify_magic(self, val):
-        self.magic = self.magic + val
-        self.magic_mod += val
+        self.base_magic = self.base_magic + val
         return f"{self.pronouns['possessive']} Magic {'decreased' if val < 0 else 'increased'} by {val}."
 
     def get_status(self, id):
