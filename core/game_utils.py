@@ -5,6 +5,7 @@ import pygame
 import sys
 
 from core.game_context import GameContext
+from core.status import Status
 
 # --------------------------------------------------
 # PLAYER INFO
@@ -81,11 +82,11 @@ def enemy_alive(ctx: GameContext):
 
 
 def attack_up(ctx: GameContext, val: int):
-    ctx.game.player.attack += val
+    ctx.game.player.base_attack += val
 
 
 def defense_up(ctx: GameContext, val: int):
-    ctx.game.player.defense += val
+    ctx.game.player.base_defense += val
 
 
 # --------------------------------------------------
@@ -104,9 +105,7 @@ def rest(ctx: GameContext):
     heal_hp(ctx)
     heal_mp(ctx)
     print("Your HP and MP have been restored to full.")
-    message = restore_defense(ctx)
-    if message:
-        print("Your " + message + ".")
+    cleanse_debuff_statuses(ctx)
 
 def heal_hp(ctx: GameContext, val: int = None):
     if val:
@@ -120,13 +119,21 @@ def heal_mp(ctx: GameContext, val: int = None):
     else:
         ctx.game.player.mp = ctx.game.player.max_mp
 
-def restore_defense(ctx) -> str:
-    if ctx.game.player.defense_mod < 0:
-        return ctx.game.player.modify_defense(-ctx.game.player.defense_mod)
-    return ""
-
 def cleanse_debuff_statuses(ctx) -> None:
+    # ctx.game.player.add_status(Status(
+    #             "poison",
+    #             "Poison",
+    #             1,
+    #             {
+                    
+    #             },
+    #             {
+    #                 "display_text": "Poison"
+    #             },
+    #             {"debuff", "cleansable"}
+    #         ))
     for status in list(ctx.game.player.statuses):
+        print(status.name)
         if "debuff" in status.tags and "cleansable" in status.tags:
             status.duration = 0
             print(f"{status.name} has been removed.")

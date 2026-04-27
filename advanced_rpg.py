@@ -132,7 +132,7 @@ class BattleGame:
                     "defense": 0,
                     "magic": 0,
                 },
-                {"debuff", "cleanseable"}
+                {"debuff", "cleansable"}
             ),
             "burn": lambda duration = 5: Status(
                 "burn",
@@ -145,7 +145,7 @@ class BattleGame:
                 {
                     "display_text": "Burn"
                 },
-                {"debuff", "cleanseable"}
+                {"debuff", "cleansable"}
 
             ),
             "poison": lambda duration = 5: Status(
@@ -159,7 +159,7 @@ class BattleGame:
                 {
                     "display_text": "Poison"
                 },
-                {"debuff", "cleanseable"}
+                {"debuff", "cleansable"}
 
             ),
             "rage": lambda duration = 3: Status(
@@ -217,7 +217,7 @@ class BattleGame:
                 {
                     "display_text": "Asleep",
                 },
-                {"debuff", "cleanseable"}
+                {"debuff", "cleansable"}
             ),
             "speedy_mp_recovery": lambda duration = -1: Status(
                 "speedy_mp_recovery",
