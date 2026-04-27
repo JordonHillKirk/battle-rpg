@@ -21,6 +21,8 @@ normal_areas = [
     {"name": "Bandits", "func": bandits, "type": "normal"},
     {"name": "Coliseum", "func": coliseum_path, "type": "normal"},
     {"name": "Garden Gate", "func": garden_gate, "type": "one_way_strict"},
+    {"name": "Password Gate", "func": password_gate, "type": "normal", "setup": create_password_gate_areas, "post_insert": position_password_gate, "validator": validate_password_gate_access
+}
 ]
 
 random_encounters = [
@@ -61,8 +63,6 @@ one_way_from_areas = [
     }
 ]
 
-password_gate_area = {"name": "Password Gate", "func": password_gate, "type": "normal"}
-
 # --------------------------------------------------
 # DEBUG OUTPUT
 # --------------------------------------------------
@@ -73,6 +73,36 @@ def print_connections(areas, conns):
             f.write(f"area {node}: {areas[node]['name']}\n")
             f.write(f"forward: {conns[node]['forward']}\n")
             f.write(f"back: {conns[node]['back']}\n\n")
+
+def stress_test_maps(ctx, runs=1000):
+    failures = {
+        "return_to_start": 0,
+        "softlock": 0,
+        "password_gate": 0,
+    }
+
+    for i in range(runs):
+        randomize_areas(ctx)
+
+        ok_return = validate_return_to_start(ctx, False)
+        ok_softlock = validate_no_softlocks(ctx, False)
+        ok_password = validate_password_gate_access(ctx, False)
+
+        if not ok_return:
+            failures["return_to_start"] += 1
+        elif not ok_softlock:
+            failures["softlock"] += 1
+        elif not ok_password:
+            failures["password_gate"] += 1
+
+        else:
+            print(f"Run {i+1}: OK")
+
+    print("\n--- STRESS TEST RESULTS ---")
+    print(f"Total runs: {runs}")
+    print(f"Return-to-start failures: {failures['return_to_start']}")
+    print(f"Softlock failures: {failures['softlock']}")
+    print(f"Password gate failures: {failures['password_gate']}")
 
 def visualize_map(ctx):
     areas = ctx.map.areas
@@ -113,7 +143,7 @@ def visualize_map(ctx):
     print("\nMAP VISUALIZATION:")
     dfs(0)
    
-def validate_return_to_start(ctx):
+def validate_return_to_start(ctx, verbose=True):
     areas = ctx.map.areas
     connections = ctx.map.connections
 
@@ -142,12 +172,13 @@ def validate_return_to_start(ctx):
     unreachable = all_nodes - reachable
 
     if unreachable:
-        print("❌ These areas cannot return to Start:")
-        for i in unreachable:
-            print(f"- {areas[i]['name']} (#{i})")
-        return False
-
-    print("✅ All areas can reach Start")
+        if verbose:
+            print("❌ These areas cannot return to Start:")
+            for i in unreachable:
+                print(f"- {areas[i]['name']} (#{i})")
+            return False
+    if verbose:
+        print("✅ All areas can reach Start")
     return True
 
 def can_escape_without(ctx, start, blocked):
@@ -183,7 +214,7 @@ def can_escape_without(ctx, start, blocked):
 
     return False
 
-def validate_no_softlocks(ctx):
+def validate_no_softlocks(ctx, verbose=True):
     areas = ctx.map.areas
     connections = ctx.map.connections
 
@@ -192,26 +223,28 @@ def validate_no_softlocks(ctx):
             forward_paths = connections[i]["forward"]
 
             if not forward_paths:
-                print(f"❌ {node['name']} has no landing.")
+                if verbose:
+                    print(f"❌ {node['name']} has no landing.")
                 return False
 
             landing = forward_paths[0]
 
             if not can_escape_without(ctx, landing, i):
-                print(
-                    f"❌ Softlock risk: "
-                    f"{node['name']} → {areas[landing]['name']}"
-                )
+                if verbose:
+                    print(
+                        f"❌ Softlock risk: "
+                        f"{node['name']} → {areas[landing]['name']}"
+                    )
                 return False
-
-    print("✅ No softlocks detected")
+    if verbose:
+        print("✅ No softlocks detected")
     return True
 
 # --------------------------------------------------
-# MAP RANDOMIZATION (RESTORED)
+# MAP RANDOMIZATION
 # --------------------------------------------------
 
-def randomize_areas(ctx: GameContext):
+def randomize_areas(ctx: GameContext, verbose = False):
 
     def connect(from_area, to_area, one_way=False):
         to_node = areas[to_area]
@@ -231,8 +264,25 @@ def randomize_areas(ctx: GameContext):
     def find_area_index(a):
         return next(idx for idx, node in enumerate(areas) if node["name"] == a["name"])
     
-    #initialize password gate areas
-    password_tree_areas = create_password_gate_areas(ctx)
+    generated_areas = []
+    generated_endpoints = []
+
+    all_area_defs = (
+        normal_areas
+        + random_encounters
+        + branching_areas
+        + one_way_to_areas
+        + one_way_from_areas
+        + endpoint_areas
+    )
+
+    # get additional areas from any areas with setup
+    for node in all_area_defs:
+        if "setup" in node:
+            result = node["setup"](ctx)
+
+            generated_areas.extend(result.get("areas", []))
+            generated_endpoints.extend(result.get("endpoints", []))
 
     while True:
         areas = []
@@ -246,11 +296,12 @@ def randomize_areas(ctx: GameContext):
         areas.extend(copy.deepcopy(random_encounters))
         areas.extend(copy.deepcopy(branching_areas))
         areas.extend(copy.deepcopy(one_way_to_areas))
-        areas.extend(password_tree_areas)
+        areas.extend(copy.deepcopy(generated_areas))
 
         endpoints.extend(copy.deepcopy(endpoint_areas))
         endpoints.extend(copy.deepcopy(dummy_endpoints))
         endpoints.extend(copy.deepcopy(one_way_from_areas))
+        endpoints.extend(copy.deepcopy(generated_endpoints))
 
         random.shuffle(endpoints)
 
@@ -263,21 +314,17 @@ def randomize_areas(ctx: GameContext):
         # assign indices
         for i, node in enumerate(areas):
             node["index"] = i
-        
-        # insert password gate
-        max_tree_index = max(
-            node["index"]
-            for node in areas
-            if node.get("is_password_tree")
-        )
-        gate_index = max_tree_index + 1
-        areas.insert(gate_index, password_gate_area)
 
         # insert endpoints for branches
         for i, branch in enumerate(branching_areas, start=1):
             branch_index = find_area_index(branch)
             insert_index = random.randint(branch_index + 1, len(areas))
             areas.insert(insert_index, endpoints[i])
+
+        # run post-insert hooks
+        for node in list(areas):
+            if "post_insert" in node:
+                node["post_insert"](ctx, areas, node)
 
         # final endpoint
         areas.append(endpoints[-1])
@@ -315,15 +362,23 @@ def randomize_areas(ctx: GameContext):
 
             else:
                 connect(i, i + 1)
-            
-        if validate_return_to_start(ctx) and validate_no_softlocks(ctx):
+        
+        ctx.map.areas = areas
+        ctx.map.endpoints = endpoints
+        ctx.map.connections = connections
+        validators = [validate_return_to_start, validate_no_softlocks]
+        for node in areas:
+            if "validator" in node:
+                validators.append(node["validator"])
+
+        all_valid = all(v(ctx, verbose = False) for v in set(validators))
+        if all_valid:
             break
-        print("Map generation failed.")
+        if verbose:
+            print("Map generation failed.")
 
     print_connections(areas, connections)
-    ctx.map.areas = areas
-    ctx.map.endpoints = endpoints
-    ctx.map.connections = connections
+    
     ctx.map.visited = []
     for node in areas:
         if node.get("type") == "dummy":
@@ -503,3 +558,6 @@ def main(ctx):
         current, direction, last_area = area(
             ctx, current, direction, last_area
         )
+
+if __name__ == "__main__":
+    pass

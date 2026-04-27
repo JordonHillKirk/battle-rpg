@@ -53,7 +53,8 @@ from .garden_gate import (
 # ---- password gate ----
 from .password_gate import (
     create_password_gate_areas,
-    tree,
+    position_password_gate,
+    validate_password_gate_access,
     password_gate
 )
 
