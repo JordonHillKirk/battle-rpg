@@ -230,7 +230,7 @@ class BattleGame:
                 {
                     "mp_gain": 1
                 },
-                {BUFF, "permanent"}
+                {BUFF, PERMANENT}
             ),
             "valor": lambda duration = 3: Status(
                 "valor",
@@ -709,7 +709,7 @@ class BattleGame:
 
         if getattr(self, "skip_turn", None):
             self.skip_turn = False
-            self.end_of_turn(self.enemy)
+            self.end_of_turn(ctx)
             return
 
         if self.enemy.hp <=self.enemy.max_hp / 2 and getattr(self.enemy, ACTION_SPECIAL, None):
@@ -876,7 +876,7 @@ class BattleGame:
                 result["damage_multiplier"] *= r["damage_multiplier"]
 
             # Early exit for hard stops
-            if result["blocked"] or result["skip_turn"] or result["end_battle"]:
+            if result["blocked_all"] or result["blocked"] or result["skip_turn"] or result["end_battle"]:
                 break
 
         return result
