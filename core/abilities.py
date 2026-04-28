@@ -104,7 +104,7 @@ abilities = {
                 },
                 "func": lambda ctx: ctx.user.restore_hp(30), 
                 "hover": "+30 HP",
-                "value": 30
+                "heal": 30
             },
             "super_potion": {
                 "id": "super_potion",
@@ -115,7 +115,7 @@ abilities = {
                 },
                 "func": lambda ctx: ctx.user.restore_hp(60), 
                 "hover": "+60 HP",
-                "value": 60
+                "heal": 60
             },
             "mana_potion": {
                 "id": "mana_potion",

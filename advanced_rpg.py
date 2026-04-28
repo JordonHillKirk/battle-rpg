@@ -10,6 +10,7 @@ from core.effect_context import EffectContext
 from core.status import Status
 from core.entities import Enemy, Player
 from core.abilities import abilities
+from core.constants import *
 
 def getCurrentDirectory():
     return os.path.dirname(os.path.realpath(__file__)) + "\\"
@@ -97,7 +98,7 @@ class BattleGame:
             Enemy("Goblin", "Goblin", 50, 10, 2, 0, 0, ["bite", "scratch", "surprise"]),
             Enemy("Orc", "Orc", 80, 12, 4, 0, 0, ["slash"], [], []),
             Enemy("Orc Shaman", "Orc", 60, 14, 3, 20, 20, ["slash"], [], ["lambda"]),
-            Enemy("Orc Elite", "Orc", 100, 15, 5, 10, 10, ["heavy_strike"], [], [""]),
+            Enemy("Orc Elite", "Orc", 100, 15, 5, 10, 10, ["heavy_strike"], [], []),
             Enemy("Orc Champion", "Orc", 120, 18, 6, 20, 20, ["heavy_strike"], [], ["lambda"]),
             Enemy("Sneaky Orc", "Orc", 100, 15, 3, 0, 0, ["poison_blade"], [], []),
             Enemy("Dragon", "Dragon", 200, 20, 8, 0, 0, ["bite", "fire_breath"]),
@@ -114,38 +115,38 @@ class BattleGame:
                 1,
                 {},
                 {
-                    "attack": 0,
-                    "defense": 0,
-                    "magic": 0,
+                    ATTACK: 0,
+                    DEFENSE: 0,
+                    MAGIC: 0,
                 },
-                {"buff"}
+                {BUFF}
             ),
             "stats_down": lambda: Status(
                 "stats_down",
                 "Stats Down",
                 1,
                 {
-                    "on_battle_end": self.tick_status
+                    ON_BATTLE_END: self.tick_status
                 },
                 {
-                    "attack": 0,
-                    "defense": 0,
-                    "magic": 0,
+                    ATTACK: 0,
+                    DEFENSE: 0,
+                    MAGIC: 0,
                 },
-                {"debuff", "cleansable"}
+                {DEBUFF, CLEANSABLE}
             ),
             "burn": lambda duration = 5: Status(
                 "burn",
                 "Burn",
                 duration,
                 {
-                    "on_turn_end": self.burn_tick,
-                    "on_0_duration": lambda ctx, status: self.log(f"{ctx.user.pronouns['possessive']} burn faded."),
+                    ON_TURN_END: self.burn_tick,
+                    ON_0_DURATION: lambda ctx, status: self.log(f"{ctx.user.pronouns['possessive']} burn faded."),
                 },
                 {
                     "display_text": "Burn"
                 },
-                {"debuff", "cleansable"}
+                {DEBUFF, CLEANSABLE}
 
             ),
             "poison": lambda duration = 5: Status(
@@ -153,13 +154,13 @@ class BattleGame:
                 "Poison",
                 duration,
                 {
-                    "on_turn_start": self.poison_tick,
-                    "on_0_duration": lambda ctx, status: self.log(f"{ctx.user.pronouns['possessive']} poison faded."),
+                    ON_TURN_START: self.poison_tick,
+                    ON_0_DURATION: lambda ctx, status: self.log(f"{ctx.user.pronouns['possessive']} poison faded."),
                 },
                 {
                     "display_text": "Poison"
                 },
-                {"debuff", "cleansable"}
+                {DEBUFF, CLEANSABLE}
 
             ),
             "rage": lambda duration = 3: Status(
@@ -167,84 +168,84 @@ class BattleGame:
                 "Rage",
                 duration,
                 {
-                    "on_turn_start": self.tick_status,
-                    "on_pre_damage": self.rage_pre_damage,
-                    "on_0_duration": lambda ctx, status: self.log(f"{ctx.user.name} calmed down!")
+                    ON_TURN_START: self.tick_status,
+                    ON_PRE_DAMAGE: self.rage_pre_damage,
+                    ON_0_DURATION: lambda ctx, status: self.log(f"{ctx.user.name} calmed down!")
                 },
                 {
                     "display_text": "Rage"
                 },
-                {"buff"}
+                {BUFF}
             ),
             "sheep": lambda duration = 0: Status(
                 "sheep",
                 "Sheep",
                 duration or random.randint(1, 2),
                 {
-                    "on_pre_damage": self.sheep_pre_damage,
-                    "on_0_duration": lambda ctx, status: self.log("    The sheep disappeared.")
+                    ON_PRE_DAMAGE: self.sheep_pre_damage,
+                    ON_0_DURATION: lambda ctx, status: self.log("    The sheep disappeared.")
                 },
                 {
                     "display_text": "Sheep",
                     "first_sheep": True
                 },
-                {"buff"}
+                {BUFF}
             ),
             "sheepda": lambda duration = 3: Status(
                 "sheepda",
                 "Sheepda",
                 duration,
                 {
-                    "on_turn_start": self.tick_status,
-                    "on_pre_damage": self.sheep_pre_damage,
-                    "on_0_duration": lambda ctx, status: self.log(f"{ctx.user.pronouns['possessive']} sheep disappeared.")
+                    ON_TURN_START: self.tick_status,
+                    ON_PRE_DAMAGE: self.sheep_pre_damage,
+                    ON_0_DURATION: lambda ctx, status: self.log(f"{ctx.user.pronouns['possessive']} sheep disappeared.")
                 },
                 {
                     "display_text": "Sheepda",
                     "first_sheep": True
                 },
-                {"buff"}
+                {BUFF}
             ),
             "sleep": lambda duration = 3: Status(
                 "sleep",
                 "Sleep",
                 duration,
                 {
-                    "on_turn_start": self.sleep_turn_start,
-                    "on_post_damage": self.sleep_post_damage,
-                    "on_0_duration": lambda ctx, status: self.log(f"    {ctx.user.name} woke up!")
+                    ON_TURN_START: self.sleep_turn_start,
+                    ON_POST_DAMAGE: self.sleep_post_damage,
+                    ON_0_DURATION: lambda ctx, status: self.log(f"    {ctx.user.name} woke up!")
                 },
                 {
                     "display_text": "Asleep",
                 },
-                {"debuff", "cleansable"}
+                {DEBUFF, CLEANSABLE}
             ),
             "speedy_mp_recovery": lambda duration = -1: Status(
                 "speedy_mp_recovery",
                 "Speedy MP Recovery",
                 duration,
                 {
-                    "on_turn_start": self.speedy_regen_mp_tick
+                    ON_TURN_START: self.speedy_regen_mp_tick
                 },
                 {
                     "mp_gain": 1
                 },
-                {"buff", "permanent"}
+                {BUFF, "permanent"}
             ),
             "valor": lambda duration = 3: Status(
                 "valor",
                 "Valor",
                 duration,
                 {
-                    "on_turn_start": self.tick_status,
-                    "on_0_duration": lambda ctx, status: self.log(f"{ctx.user.name}'s Valor wore off.")
+                    ON_TURN_START: self.tick_status,
+                    ON_0_DURATION: lambda ctx, status: self.log(f"{ctx.user.name}'s Valor wore off.")
                 },
                 {
                     "display_text": "Valor",
-                    "attack": 10,
-                    "defense": 10
+                    ATTACK: 10,
+                    DEFENSE: 10
                 },
-                {"buff"}
+                {BUFF}
             ),
         }
 
@@ -258,10 +259,10 @@ class BattleGame:
         self.battle_prep()
 
     def battle_prep(self, e = None, allow_forfeit = False):
-        self.turn = "player"
+        self.turn = PLAYER
         self.action = None
         self.selected_move = None
-        self.menu = "main"
+        self.menu = MENU_MAIN
         self.menu_stack = []
         self.select_enemy(e)
         self.running = True
@@ -366,7 +367,7 @@ class BattleGame:
     def make_character_select_buttons(self, characters):
         self.buttons.clear()
         for i, character in enumerate(characters):
-            self.buttons.append(Button((300, 150 + i * 60, 200, 40), character["name"], lambda c=character: self.select_character(c)))
+            self.buttons.append(Button((300, 150 + i * 60, 200, 40), character[NAME], lambda c=character: self.select_character(c)))
 
     def read_character_file(self):
         with open(getCurrentDirectory() + "characters.csv", 'r') as f:
@@ -386,7 +387,7 @@ class BattleGame:
                         data[key] = value.split(',') if value.strip() != "" else []
                         for i in range(len(data[key])):
                             data[key][i] = data[key][i].strip()
-                    elif key in ["hp", "max_hp", "attack", "defense", "magic", "mp", "max_mp"]:
+                    elif key in [HP, MAX_HP, ATTACK, DEFENSE, MAGIC, MP, MAX_MP]:
                         data[key] = int(value.strip())
                     else:
                         data[key] = value.strip()
@@ -423,70 +424,71 @@ class BattleGame:
     def make_buttons(self):
         ctx = EffectContext(self, self.player, self.enemy)
         self.buttons.clear()
-        if self.turn != "player":
+        if self.turn != PLAYER:
             return
         y_offset = 400
         spacing = 40
-        if self.menu == "main":
+        if self.menu == MENU_MAIN:
             options = []
             if self.player.hp <= self.player.max_hp / 2 and not self.player.special_used:
-                options.append(("Special", lambda: self.set_menu("special"), None))
-            options.append(("Attack", lambda: self.set_menu("attack"), None))
-            options.append(("Items", lambda: self.set_menu("items"), None))
-            options.append(("Spells", lambda: self.set_menu("spells"), None))
+                options.append(("Special", lambda: self.set_menu(MENU_SPECIAL), None))
+            options.append(("Attack", lambda: self.set_menu(MENU_ATTACK), None))
+            options.append(("Items", lambda: self.set_menu(MENU_ITEMS), None))
+            options.append(("Spells", lambda: self.set_menu(MENU_SPELLS), None))
             if self.allow_forfeit:
                 options.append(("Forfeit", self.forfeit_battle, None))
             else:
                 options.append(("Run", self.try_escape, None))
 
-        elif self.menu == "attack":
+        elif self.menu == MENU_ATTACK:
             options = []
             for move_id in self.player.moves:
                 move = self.get_ability(move_id)
-                hover = move.get("hover", "")
-                if "damage" in move:
-                    base_damage = move["damage"](ctx)
+                hover = move.get(HOVER, "")
+                if DAMAGE in move:
+                    base_damage = move[DAMAGE](ctx)
                     min_damage = max(0, base_damage - 3)
                     max_damage = max(0, base_damage + 3)
                     hover += f"Damage: {min_damage}-{max_damage} "
-                if "hits" in move:
+                if HITS in move:
                     hover += f"(x{move['hits']}) "
-                if "status" in move["effect"]:
-                    hover += "status move"
-                options.append((move["name"], lambda m=move_id: self.select_move(ctx, m), hover))
+                if FUNC in move:
+                    # hover += "status move"
+                    pass
+                options.append((move[NAME], lambda m=move_id: self.select_move(ctx, m), hover))
             options.append(("Back", self.go_back, None))
             
-        elif self.menu == "spells":
+        elif self.menu == MENU_SPELLS:
             options = []
             for spell_id in self.player.spells:
                 spell = self.get_ability(spell_id)
-                spell_mp = spell.get("cost", {}).get("mp", 0)
-                hover = spell.get("hover")
-                if "damage" in spell["effect"]:
+                spell_mp = spell.get(COST, {}).get(MP, 0)
+                hover = spell.get(HOVER)
+                if DAMAGE in spell:
                     base_damage = spell["damage"](ctx)
                     min_damage = max(1, base_damage - 3)
                     max_damage = max(1, base_damage + 3)
                     hover = f"Damage: {min_damage}-{max_damage}"
                 if self.player.mp >= spell_mp:
-                    options.append((f"{spell['name']} ({spell_mp} MP)", lambda s=spell_id: self.cast_spell(ctx, s), hover))
+                    options.append((f"{spell[NAME]} ({spell_mp} MP)", lambda s=spell_id: self.cast_spell(ctx, s), hover))
             options.append(("Back", self.go_back, None))
             
-        elif self.menu == "items":
+        elif self.menu == MENU_ITEMS:
             options = []
             items = list(set(self.player.inventory))
             for item_id in items:
                 item = self.get_ability(item_id)
-                options.append((f"{item['name']} x{self.player.inventory.count(item_id)}", lambda i=item_id: self.use_item(ctx, i), item.get("hover")))
+                options.append((f"{item[NAME]} x{self.player.inventory.count(item_id)}", lambda i=item_id: self.use_item(ctx, i), item.get(HOVER)))
             options.append(("Back", self.go_back, None))
 
-        elif self.menu == "special":
+        elif self.menu == MENU_SPECIAL:
             special = self.get_ability(self.player.special)
             options = [
-                (special["name"], self.set_special, special.get("hover", None)),
+                (special[NAME], self.set_special, special.get(HOVER, None)),
                 ("Back", self.go_back, None)
             ]
 
-        elif self.menu == "quit":
+        elif self.menu == MENU_QUIT:
             options = [("Quit", self.quit_game, None)]
         
         else:
@@ -497,18 +499,18 @@ class BattleGame:
             self.buttons.append(Button((50, y_offset + i * spacing, width, 30), text, callback, hover))
 
     def set_menu(self, menu):
-        if self.menu != "quit":
+        if self.menu != MENU_QUIT:
             self.menu = menu
         self.make_buttons()
 
     def go_back(self):
-        self.set_menu("main")
+        self.set_menu(MENU_MAIN)
 
     def set_special(self):
         self.player.special_used = True
-        self.action = "special"
+        self.action = ACTION_SPECIAL
         self.selected_move = self.player.special
-        self.set_menu("main")
+        self.set_menu(MENU_MAIN)
 
     def forfeit_battle(self):
         self.log("You forfeited the battle.")
@@ -523,12 +525,12 @@ class BattleGame:
             self.end_battle()
         else:
             self.log("You failed to escape!")
-            self.turn = "enemy"
+            self.turn = ENEMY
         self.make_buttons()
 
     def select_move(self, ctx, move):
         self.selected_move = move
-        self.action = "attack"
+        self.action = ACTION_ATTACK
         self.make_buttons()
 
     def use_item(self, ctx, item_name):
@@ -536,26 +538,26 @@ class BattleGame:
             print("Item not in inventory:", item_name)
             return
         self.selected_move = item_name
-        self.action = "item"
+        self.action = ACTION_ITEM
         self.make_buttons()
 
     def cast_spell(self, ctx, spell_id):
         spell = self.get_ability(spell_id)
-        if self.player.mp >= spell.get("cost", {}).get("mp", 0):
+        if self.player.mp >= spell.get(COST, {}).get(MP, 0):
             self.selected_move = spell_id
-            self.action = "spell"
+            self.action = ACTION_SPELL
         else:
             self.log("Not enough MP!")
-            self.turn = "enemy"
+            self.turn = ENEMY
         self.make_buttons()
 
     def execute_ability(self, ctx, ability, ability_id):
         self.pay_ability_costs(ctx.user, ability, ability_id)
 
-        if "damage" in ability:
+        if DAMAGE in ability:
             ctx.ability_id = ability_id
 
-            hits = ability.get("hits", 1)
+            hits = ability.get(HITS, 1)
             if callable(hits):
                 hits = hits()
 
@@ -563,13 +565,13 @@ class BattleGame:
                 if not ctx.target.is_alive():
                     break
 
-                pre = self.apply_status_event(ctx, ctx.target, "on_pre_damage")
+                pre = self.apply_status_event(ctx, ctx.target, ON_PRE_DAMAGE)
                 if pre["blocked_all"]:
                     break
                 if pre["blocked"]:
                     continue
 
-                damage = ability["damage"](ctx)
+                damage = ability[DAMAGE](ctx)
                 damage = floor(damage * pre["damage_multiplier"])
                 
                 message = "    "
@@ -580,14 +582,14 @@ class BattleGame:
 
                 # Attacker post-damage
                 attacker_ctx = EffectContext(self, ctx.user, ctx.target)
-                self.apply_status_event(attacker_ctx, ctx.user, "on_post_damage")
+                self.apply_status_event(attacker_ctx, ctx.user, ON_POST_DAMAGE)
 
                 # Defender post-damage
                 defender_ctx = EffectContext(self, ctx.target, ctx.user)
-                self.apply_status_event(defender_ctx, ctx.target, "on_post_damage")
+                self.apply_status_event(defender_ctx, ctx.target, ON_POST_DAMAGE)
 
-        if "func" in ability:
-            result = ability["func"](ctx)
+        if FUNC in ability:
+            result = ability[FUNC](ctx)
             if result:
                 self.log(f"    {result}")
 
@@ -595,11 +597,11 @@ class BattleGame:
         return self.abilities[id]
 
     def pay_ability_costs(self, user, ability, ability_id):
-        cost = ability.get("cost", {})
+        cost = ability.get(COST, {})
 
         # Cost
-        user.mp -= cost.get("mp", 0)
-        for _ in range(cost.get("item", 0)):
+        user.mp -= cost.get(MP, 0)
+        for _ in range(cost.get(COST_ITEM, 0)):
             user.inventory.remove(ability_id)
 
     def render(self):
@@ -624,10 +626,10 @@ class BattleGame:
                 screen.blit(popup_surface, popup_rect)
 
     def logic(self):
-        if self.turn == "player" and self.action:
+        if self.turn == PLAYER and self.action:
             self.player_turn()
             
-        elif self.turn == "enemy" and self.enemy.is_alive():
+        elif self.turn == ENEMY and self.enemy.is_alive():
             self.enemy_turn()
             self.end_of_round()
         
@@ -646,15 +648,15 @@ class BattleGame:
     def end_battle(self):
         self.battle_over = True
         self.end_of_battle()
-        self.turn = "player"
-        self.set_menu("quit")
+        self.turn = PLAYER
+        self.set_menu(MENU_QUIT)
 
     def quit_game(self):
         self.running = False
 
     def change_turn(self, p):
-        next_user = self.enemy if p == "enemy" else self.player
-        next_target = self.player if p == "enemy" else self.enemy
+        next_user = self.enemy if p == ENEMY else self.player
+        next_target = self.player if p == ENEMY else self.enemy
 
         new_ctx = EffectContext(self, next_user, next_target)
 
@@ -663,7 +665,7 @@ class BattleGame:
         if not can_act:
             # immediately pass turn
             self.end_of_turn(new_ctx)
-            next_p = "player" if p == "enemy" else "enemy"
+            next_p = PLAYER if p == ENEMY else ENEMY
             self.change_turn(next_p)
             return
 
@@ -671,10 +673,10 @@ class BattleGame:
         self.turn = p
 
         # Set menu based on turn
-        if self.turn == "player":
-            self.set_menu("main")
+        if self.turn == PLAYER:
+            self.set_menu(MENU_MAIN)
         else:
-            self.set_menu("")
+            self.set_menu(MENU_NONE)
 
     def player_turn(self):
         ctx = EffectContext(self, self.player, self.enemy)
@@ -683,19 +685,19 @@ class BattleGame:
         verb = self.text_formatter[self.action]["verb"]
         article = self.text_formatter[self.action].get("article", "")
         if article != "":
-            article = article(ability["name"])
+            article = article(ability[NAME])
 
-        self.log(f"{ctx.user.pronouns['subject']} {verb} {article}{ability['name']}!")
+        self.log(f"{ctx.user.pronouns['subject']} {verb} {article}{ability[NAME]}!")
         self.execute_ability(ctx, ability, self.selected_move)
         if self.battle_over:
             self.action = ""
             self.selected_move = ""
             return
 
-        if self.action == "special":
+        if self.action == ACTION_SPECIAL:
             self.action = ""
             self.selected_move = ""
-            self.set_menu("main")
+            self.set_menu(MENU_MAIN)
             return
         
         self.action = ""
@@ -710,11 +712,11 @@ class BattleGame:
             self.end_of_turn(self.enemy)
             return
 
-        if self.enemy.hp <=self.enemy.max_hp / 2 and getattr(self.enemy, "special", None):
+        if self.enemy.hp <=self.enemy.max_hp / 2 and getattr(self.enemy, ACTION_SPECIAL, None):
             ability_id = self.enemy.special
             ability = self.get_ability(ability_id)
-            verb = self.text_formatter["special"]["verb"]
-            self.log(f"{self.enemy.name} {verb} {ability['name']}!")
+            verb = self.text_formatter[ACTION_SPECIAL]["verb"]
+            self.log(f"{self.enemy.name} {verb} {ability[NAME]}!")
             self.execute_ability(ctx, ability, ability_id)
             self.enemy.special = None
 
@@ -725,17 +727,17 @@ class BattleGame:
         for ability_type, ability_id in self.get_enemy_abilities(self.enemy):
             ability = self.get_ability(ability_id)
 
-            if "heal" not in ability.get("effect", []):
+            if HEAL not in ability:
                 continue
 
-            cost = ability.get("cost", {})
+            cost = ability.get(COST, {})
 
-            if "mp" in cost and self.enemy.mp < cost["mp"]:
+            if MP in cost and self.enemy.mp < cost[MP]:
                 continue
-            if "item" in cost and self.enemy.inventory.count(ability_id) < cost["item"]:
+            if COST_ITEM in cost and self.enemy.inventory.count(ability_id) < cost[COST_ITEM]:
                 continue
 
-            heal_value = ability.get("value", 0)
+            heal_value = ability.get(HEAL, 0)
 
             if missing_hp >= heal_value:
                 usable_heals.append((ability_type, ability_id, ability))
@@ -744,7 +746,7 @@ class BattleGame:
             ability_type, ability_id, ability = random.choice(usable_heals)
 
             verb = self.text_formatter[ability_type]["verb"]
-            self.log(f"{self.enemy.name} {verb} {ability['name']}!")
+            self.log(f"{self.enemy.name} {verb} {ability[NAME]}!")
 
             self.execute_ability(ctx, ability, ability_id)
         else:
@@ -757,7 +759,7 @@ class BattleGame:
                 ability = self.get_ability(ability_id)
 
                 verb = self.text_formatter[ability_type]["verb"] 
-                self.log(f"{self.enemy.name} {verb} {ability['name']}!")
+                self.log(f"{self.enemy.name} {verb} {ability[NAME]}!")
                 self.execute_ability(ctx, ability, ability_id)
 
         self.end_of_turn(ctx)
@@ -783,16 +785,16 @@ class BattleGame:
         for ability_type, id in abilities:
             ability = self.get_ability(id)
 
-            cost = ability.get("cost", {})
-            if "mp" in cost and enemy.mp < cost["mp"]:
+            cost = ability.get(COST, {})
+            if MP in cost and enemy.mp < cost[MP]:
                 continue
-            if "item" in cost and enemy.inventory.count(id) < cost["item"]:
+            if COST_ITEM in cost and enemy.inventory.count(id) < cost[COST_ITEM]:
                 continue
 
             # healing filter
-            if "heal" in ability.get("effect", []):
+            if HEAL in ability:
                 missing_hp = enemy.max_hp - enemy.hp
-                if missing_hp <= ability.get("value", 0): 
+                if missing_hp <= ability.get(HEAL, 0): 
                     continue
 
             usable.append((ability_type, id))
@@ -801,17 +803,17 @@ class BattleGame:
 
     def start_of_turn(self, ctx):
         # print("Start of turn")
-        start = self.apply_status_event(ctx, ctx.user, "on_turn_start")
+        start = self.apply_status_event(ctx, ctx.user, ON_TURN_START)
         self.handle_regen_mp(ctx.user)
         return not start["skip_turn"]
 
     def end_of_turn(self, ctx):
-        self.apply_status_event(ctx, ctx.user, "on_turn_end")
+        self.apply_status_event(ctx, ctx.user, ON_TURN_END)
         self.cleanup_statuses(ctx.user)
         if ctx.user == self.player:
-            self.change_turn("enemy")
+            self.change_turn(ENEMY)
         else:
-            self.change_turn("player")
+            self.change_turn(PLAYER)
 
     def end_of_round(self):
         pygame.display.flip()
@@ -819,8 +821,8 @@ class BattleGame:
 
     def end_of_battle(self):
         ctx = EffectContext(self, self.player, self.enemy)
-        self.apply_status_event(ctx, self.player, "on_battle_end")
-        self.apply_status_event(ctx, self.enemy, "on_battle_end")
+        self.apply_status_event(ctx, self.player, ON_BATTLE_END)
+        self.apply_status_event(ctx, self.enemy, ON_BATTLE_END)
         self.cleanup_statuses(self.player)
         self.cleanup_statuses(self.enemy)
 
@@ -835,13 +837,13 @@ class BattleGame:
 
         else:
             entity.statuses.append(status)
-            if "on_apply" in status.handlers:
-                status.handlers["on_apply"](EffectContext(self, entity, None), status)
+            if ON_APPLY in status.handlers:
+                status.handlers[ON_APPLY](EffectContext(self, entity, None), status)
 
     def apply_status_event(self, ctx, entity, event):
         result = {
-            "blocked_all": False,
-            "blocked": False,
+            "blocked_all": False,   # stop all attacks/hits
+            "blocked": False,       # stop one attack/hit
             "skip_turn": False,
             "end_battle": False,
             "damage_multiplier": 1.0
@@ -860,6 +862,8 @@ class BattleGame:
                 continue
 
             # Merge booleans (OR logic)
+            if r.get("blocked_all"):
+                result["blocked_all"] = True
             if r.get("blocked"):
                 result["blocked"] = True
             if r.get("skip_turn"):
@@ -929,13 +933,9 @@ class BattleGame:
         self.add_status(user, self.status_defs["valor"]())
     
     def valor_apply(self, ctx, status):
-        ctx.user.modify_attack(status.data["attack"])
-        ctx.user.modify_defense(status.data["defense"])
         self.log(f"    {ctx.user.name}'s Attack and Defense increased!")
 
     def valor_end(self, ctx, status):
-        # ctx.user.modify_attack(-status.data["attack"])
-        # ctx.user.modify_defense(-status.data["attack"])
         self.log(f"{ctx.user.name}'s Valor wore off.")
 
     def rage(self, user):
@@ -976,7 +976,7 @@ class BattleGame:
         status.reduce_duration(ctx, status.duration)
     
     def speedy_regen_mp(self, entity):
-        self.add_status(entity, self.status_defs["speedy_mp_ecovery"]())
+        self.add_status(entity, self.status_defs["speedy_mp_recovery"]())
 
     def speedy_regen_mp_tick(self, ctx, status):
         ctx.user.restore_mp(status.data["mp_gain"])

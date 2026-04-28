@@ -1,8 +1,55 @@
+
+NAME = "name"
+HP = "hp"
+MAX_HP = "max_hp"
 ATTACK = "attack"
 DEFENSE = "defense"
 MAGIC = "magic"
+MP = "mp"
+MAX_MP = "max_mp"
+
+COST = "cost"
+HOVER = "hover"
 
 DEBUFF = "debuff"
 BUFF = "buff"
 CLEANSABLE = "cleansable"
 PERMANENT = "permanent"
+
+EFFECT = "effect"
+VALUE = "value"
+DAMAGE = "damage"
+FUNC = "func"
+HITS = "hits"
+HEAL = "heal"
+
+EFFECT_HEAL = "heal"
+EFFECT_DAMAGE = "damage"
+EFFECT_STATUS = "status"
+
+ON_TURN_START = "on_turn_start"
+ON_TURN_END = "on_turn_end"
+ON_PRE_DAMAGE = "on_pre_damage"
+ON_POST_DAMAGE = "on_post_damage"
+ON_APPLY = "on_apply"
+ON_0_DURATION = "on_0_duration"
+ON_BATTLE_END = "on_battle_end"
+
+MENU_MAIN = "main"
+MENU_ATTACK = "attack"
+MENU_ITEMS = "items"
+MENU_SPELLS = "spells"
+MENU_SPECIAL = "special"
+MENU_QUIT = "quit"
+MENU_NONE = ""
+
+ACTION_ATTACK = "attack"
+ACTION_ITEM = "item"
+ACTION_SPELL = "spell"
+ACTION_SPECIAL = "special"
+
+PLAYER = "player"
+ENEMY = "enemy"
+
+COST_MP = "mp"
+COST_ITEM = "item"
