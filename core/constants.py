@@ -21,6 +21,7 @@ PRONOUN_POSSESSIVE = "possessive"
 # =========================
 # Ability Dictionary Keys
 # =========================
+ID = "id"
 COST = "cost"
 HOVER = "hover"
 VALUE = "value"
