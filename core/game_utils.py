@@ -1,5 +1,6 @@
 # core/game_utils.py
 
+import os
 import random
 import pygame
 import sys
@@ -58,7 +59,6 @@ def fight(ctx: GameContext, enemy, new_fight=True, allow_forfeit=False):
         ctx.game.battle_prep(enemy, allow_forfeit)
     else:
         ctx.game.ran_away = False
-        ctx.game.last_player_action = ""
 
     while alive(ctx) and enemy_alive(ctx) and not ctx.game.ran_away:
         ctx.game.make_buttons()
@@ -87,6 +87,32 @@ def attack_up(ctx: GameContext, val: int):
 
 def defense_up(ctx: GameContext, val: int):
     ctx.game.player.base_defense += val
+
+# --------------------------------------------------
+# COMBAT EVENT HANDLER
+# --------------------------------------------------
+
+def handle_combat_events(self, events):
+    for event in events:
+        handle_combat_event(self, event, data)
+
+def handle_combat_event(self, event, data):
+    if event == "gold_stolen":
+        source = data["from"]
+        target = data["to"]
+        amount = data["amount"]
+
+        # Only handle player gold
+        if source == self.player:
+            stolen = min(amount, self.player.gold)
+            self.player.gold -= stolen
+            return stolen
+
+        elif target == self.player:
+            self.player.gold += amount
+            return amount
+
+        return 0
 
 
 # --------------------------------------------------
@@ -133,15 +159,15 @@ def cleanse_debuff_statuses(ctx) -> None:
 # --------------------------------------------------
 
 def init_player(ctx: GameContext):
-    ctx.game.player.gold = 5
-    ctx.game.player.cha = 1
+    ctx.player.gold = 5
+    ctx.player.cha = 1
 
-    if ctx.game.player.name == "Bard":
-        ctx.game.player.cha += 4
+    if ctx.player.name == "Bard":
+        ctx.player.cha += 4
 
-    ctx.game.player.dex = 3
-    if ctx.game.player.name == "Rogue":
-        ctx.game.player.dex = 6
+    ctx.player.dex = 3
+    if ctx.player.name == "Rogue":
+        ctx.player.dex = 6
 
 
 # --------------------------------------------------
@@ -166,3 +192,7 @@ def victory(ctx: GameContext):
 def shut_down():
     pygame.quit()
     sys.exit()
+
+
+def getCurrentDirectory():
+    return os.path.dirname(os.path.realpath(__file__)) + "\\"

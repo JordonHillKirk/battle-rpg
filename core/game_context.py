@@ -20,8 +20,9 @@ class ArrivalState:
 
 
 class GameContext:
-    def __init__(self, game):
-        self.game = game
+    def __init__(self):
         self.map = MapState()
         self.flags = Flags()
         self.arrival = ArrivalState()
+        self.player = None
+        self.game = None

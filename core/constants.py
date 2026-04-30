@@ -90,3 +90,10 @@ ACTION_SPECIAL = "special"
 # =========================
 PLAYER = "player"
 ENEMY = "enemy"
+
+
+# =========================
+# Button Colors
+# =========================
+SPECIAL_COLOR = (50, 150, 150)
+DEFAULT_COLOR = (50, 50, 150)

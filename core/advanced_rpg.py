@@ -6,47 +6,16 @@ import random
 import sys
 import copy
 
+
 from core.abilities import get_abilities
+from core.character_select_screen import CharacterSelectScreen
 from core.constants import *
 from core.effect_context import EffectContext
 from core.entities import Enemy, Player
+from core.game_context import GameContext
+from core.shared_ui import Button, draw_text, font, screen, clock
 from core.status_defs import get_status_defs
 
-def getCurrentDirectory():
-    return os.path.dirname(os.path.realpath(__file__)) + "\\"
-
-def restore_window():
-    if platform.system() == "Windows":
-        try:
-            import win32gui
-            import win32con
-            hwnd = pygame.display.get_wm_info()['window']
-            win32gui.ShowWindow(hwnd, win32con.SW_RESTORE)
-        except ImportError:
-            print("pywin32 is not installed. Cannot restore window on Windows.")
-        except Exception as e:
-            print(f"Error restoring window: {e}")
-    else:
-        print("Window restore is not supported on this platform.")
-
-
-# Initialize Pygame
-pygame.init()
-screen = pygame.display.set_mode((800, 600))
-pygame.display.set_caption("Battle Game")
-font = pygame.font.SysFont("arial", 24)
-clock = pygame.time.Clock()
-character_path = getCurrentDirectory()
-
-sheep_image = pygame.Surface((80, 80))
-sheep_image.fill((255, 255, 255))
-pygame.draw.circle(sheep_image, (200, 200, 200), (40, 40), 40)
-
-specials = ["Rage", "Valor", "Sheepda", "ArmorUp", "Sleep", "Superior Poison"]
-
-def draw_text(surface, text, x, y, color=(255,255,255)):
-    rendered = font.render(text, True, color)
-    surface.blit(rendered, (x, y))
 
 def draw_status(surface, entity, x, y):
     draw_text(surface, f"{entity.name}", x, y)
@@ -62,37 +31,10 @@ def draw_status(surface, entity, x, y):
 def damage_variance(damage):
     return random.randint(max(0, damage - 3), max(0, damage + 3))
 
-class Button:
-    def __init__(self, rect, text, callback, hover_text=None):
-        self.rect = pygame.Rect(rect)
-        self.text = text
-        self.callback = callback
-        self.hover_text = hover_text
-        self.hovered = False
-
-    def draw(self, surface):
-        button_color = (50, 50, 150)
-        if self.hovered:
-            button_color = (100, 100, 200)  # Highlight if hovered
-        if self.text == "Special" or self.text in specials:
-            button_color = (50, 150, 150)
-        pygame.draw.rect(surface, button_color, self.rect)
-        text_surface = font.render(self.text, True, (255, 255, 255))
-        text_rect = text_surface.get_rect(center=self.rect.center)
-        surface.blit(text_surface, text_rect)
-
-    def handle_event(self, event):
-        if event.type == pygame.MOUSEBUTTONDOWN and self.rect.collidepoint(event.pos):
-            self.callback()
-    
-    def check_hover(self, mouse_pos):
-        self.hovered = self.rect.collidepoint(mouse_pos)
-
 class BattleGame:
-    def __init__(self):
-        self.player = None
-        self.selected_character = None
-        self.in_character_select = True
+    def __init__(self, player, game_ctx = None):
+        self.player = player
+        self.game_ctx = game_ctx
 
         self.enemies = [
             Enemy("Goblin", "Goblin", 50, 10, 2, 0, 0, ["bite", "scratch", "surprise"]),
@@ -104,6 +46,7 @@ class BattleGame:
             Enemy("Dragon", "Dragon", 200, 20, 8, 0, 0, ["bite", "fire_breath"]),
             Enemy("Elder Dragon", "Dragon", 400, 25, 10, 0, 0, ["bite", "greater_fire_breath"]),
             Enemy("Bandit", "Human", 60, 14, 3, 0, 0, ["slash"], ["potion", "potion", "potion", "potion", "potion"]),
+            Enemy("Training Dummy", "Dummy", 500, 1, 10, 0, 0, [], ["power_up"], [])
         ]
 
         self.abilities = get_abilities()
@@ -137,6 +80,8 @@ class BattleGame:
         self.log_offset = 0  # for scrolling
         self.max_log_lines = 6
         self.allow_forfeit = allow_forfeit
+        self.events = []
+        pygame.display.set_caption("Battle Game")
 
     def log(self, message):
         if message == None:
@@ -224,63 +169,6 @@ class BattleGame:
         for button in self.buttons:
             button.check_hover(mouse_pos)
 
-    def make_character_select_buttons(self, characters):
-        self.buttons.clear()
-        for i, character in enumerate(characters):
-            self.buttons.append(Button((300, 150 + i * 60, 200, 40), character[NAME], lambda c=character: self.select_character(c)))
-
-    def read_character_file(self):
-        with open(getCurrentDirectory() + "characters.csv", 'r') as f:
-            characters = []
-            lines = f.readlines()
-            header = lines[0]
-            keys = header.split(";")
-            for line in lines:
-                if line == lines[0]:
-                    continue
-                data = {}
-                values = line.split(";")
-                for i in range(len(keys)):
-                    key = keys[i].strip()
-                    value = values[i].strip()
-                    if key in ["moves", "inventory", "spells"]:
-                        data[key] = value.split(',') if value.strip() != "" else []
-                        for i in range(len(data[key])):
-                            data[key][i] = data[key][i].strip()
-                    elif key in [HP, MAX_HP, ATTACK, DEFENSE, MAGIC, MP, MAX_MP]:
-                        data[key] = int(value.strip())
-                    else:
-                        data[key] = value.strip()
-                characters.append(data)
-            return characters
-
-    def select_character(self, character):
-        self.player = Player(**character)
-        self.in_character_select = False
-        self.running = False
-
-    def run_character_select(self):
-        """
-        Runs ONLY the character select screen.
-        Blocks execution until a character is chosen.
-        """
-        self.in_character_select = True
-        self.running = True
-        characters = self.read_character_file()
-        self.make_character_select_buttons(characters)
-
-        while self.running:
-            screen.fill((0, 0, 0))
-            self.handle_events()
-            self.render()
-            pygame.display.flip()
-            clock.tick(60)
-
-        # after selection → hide window
-        self.minimize_window()
-
-        return self.player
-    
     def make_buttons(self):
         ctx = EffectContext(self, self.player, self.enemy)
         self.buttons.clear()
@@ -311,7 +199,7 @@ class BattleGame:
                     max_damage = max(0, base_damage + 3)
                     hover += f"Damage: {min_damage}-{max_damage} "
                 if HITS in move:
-                    hover += f"(x{move['hits']}) "
+                    hover += f"(x{move[HITS]}) "
                 if FUNC in move:
                     # hover += "status move"
                     pass
@@ -356,7 +244,14 @@ class BattleGame:
 
         for i, (text, callback, hover) in enumerate(options):
             width = max(200, font.size(text)[0] + 20)
-            self.buttons.append(Button((50, y_offset + i * spacing, width, 30), text, callback, hover))
+            
+            color = None
+            if text == "Special":
+                color = SPECIAL_COLOR
+            elif self.menu == MENU_SPECIAL and text != "Back":
+                color = SPECIAL_COLOR
+
+            self.buttons.append(Button((50, y_offset + i * spacing, width, 30), text, callback, hover, color))
 
     def set_menu(self, menu):
         if self.menu != MENU_QUIT:
@@ -465,13 +360,10 @@ class BattleGame:
             user.inventory.remove(ability_id)
 
     def render(self):
-        if self.in_character_select:
-            draw_text(screen, "Choose your character:", 300, 80)
-        else:
-            draw_status(screen, self.player, 50, 50)
-            draw_status(screen, self.enemy, 500, 50) 
+        draw_status(screen, self.player, 50, 50)
+        draw_status(screen, self.enemy, 500, 50) 
 
-            self.draw_combat_log(screen)
+        self.draw_combat_log(screen)
 
         for button in self.buttons:
             button.draw(screen)
@@ -641,6 +533,8 @@ class BattleGame:
     def get_usable_enemy_abilities(self, enemy):
         abilities = list(set(self.get_enemy_abilities(enemy)))
         usable = []
+        if self.enemy.name == "Training Dummy":
+            return []
 
         for ability_type, id in abilities:
             ability = self.get_ability(id)
@@ -868,16 +762,47 @@ class BattleGame:
         status.data[stat] = val
         entity.statuses.append(status)
         return f"{entity.pronouns['possessive']} {stat} decreased by {val}."
+    
+    def steal_item(self, ctx, chance = 50):
+        if len(ctx.target.inventory) > 0:
+            if random.randint(1, 100) <= chance:
+                item_id = random.choice(ctx.target.inventory)
+                ctx.target.inventory.remove(item_id)
+                ctx.user.inventory.append(item_id)
+                item = self.abilities[item_id]
+                article = "an " if item[NAME][0].lower() in "aeiou" else "a "
+                self.log(f"{ctx.user.pronouns[PRONOUN_SUBJECT]} stole {article}{item[NAME]}.")
+            else:
+                self.log("But, it failed.")
+        else:
+            if random.randint(1, 100) <= 10 and (ctx.target != ctx.game.player or ctx.target.gold > 0):
+                gold = random.randint(1, 10)
+                if ctx.target == ctx.game.player:
+                    gold = min(gold, ctx.target.gold)
+                    ctx.target.gold -= gold
+                ctx.user.gold += gold
+                self.log(f"{ctx.user.pronouns[PRONOUN_SUBJECT]} stole {gold} gold.")
+            else:
+                self.log("But, it failed.")
 
 
 if __name__ == "__main__":
-    game = BattleGame()
-    game.run_character_select()
-    game.battle_prep("Goblin")
-    # game.enemy.special = "lambda"
-    game.make_buttons()
-    game.run_battle()
-    game.battle_prep("Goblin")
+    # Create game context
+    ctx = GameContext()
+
+    # Character select (pygame)
+    selector = CharacterSelectScreen()
+    player = selector.run()
+
+    # Store player
+    ctx.player = player
+
+    # Create battle system
+    game = BattleGame(player, ctx)
+    ctx.game = game
+
+    # Start a test battle
+    game.battle_prep("Goblin")  # or "Dragon"
     game.make_buttons()
     game.run_battle()
     pygame.quit()

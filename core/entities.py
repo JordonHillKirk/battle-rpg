@@ -102,6 +102,3 @@ class Enemy(Entity):
     def __init__(self, name, species, hp, attack, defense, magic = 0, mp = 0, moves = ["scratch"], inventory = [], spells = []):
         super().__init__(name, {PRONOUN_SUBJECT: "They", PRONOUN_OBJECT: "them", PRONOUN_POSSESSIVE: "Their"}, hp, attack, defense, magic, mp, moves, inventory, spells)
         self.species = species
-
-def getCurrentDirectory():
-    return os.path.dirname(os.path.realpath(__file__)) + "\\"

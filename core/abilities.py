@@ -2,6 +2,9 @@ from core.constants import *
 
 def get_abilities():
     return {
+        # --------------------------------------------------
+        # Attacks
+        # --------------------------------------------------
         "slash": {
             ID: "slash",
             NAME: "Slash",
@@ -49,6 +52,14 @@ def get_abilities():
             DAMAGE: lambda ctx: ctx.user.attack - ctx.target.defense - 2,
             HITS: 2
         },
+        "steal_item": {
+            ID: "steal_item",
+            NAME: "Double Strike",
+            FUNC: lambda ctx: ctx.steal_item(ctx)
+        },
+        # --------------------------------------------------
+        # Spells
+        # --------------------------------------------------
         "fireball": {
             ID: "fireball",
             NAME: "Fireball",
@@ -85,6 +96,9 @@ def get_abilities():
             FUNC: lambda ctx: ctx.game.increase_stat(ctx.user, "magic", 10), 
             HOVER: "+10 Magic"
         },
+        # --------------------------------------------------
+        # Items
+        # --------------------------------------------------
         "potion": {
             ID: "potion",
             NAME: "Potion",
@@ -150,6 +164,9 @@ def get_abilities():
             FUNC: lambda ctx: ctx.game.try_escape(100), 
             HOVER: "Escapes combat without fail."
         },
+        # --------------------------------------------------
+        # Specials
+        # --------------------------------------------------
         "valor": {
             ID: "valor",
             NAME: "Valor",
@@ -186,6 +203,9 @@ def get_abilities():
             FUNC: lambda ctx: ctx.game.poison(ctx.target, 15),
             HOVER: "Applies 15 Poison to the enemy."
         },
+
+
+
         "pass": {
             ID: "pass",
             NAME: "Pass",
