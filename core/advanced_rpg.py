@@ -46,11 +46,14 @@ class BattleGame:
             Enemy("Black Dragon", "Dragon", 200, 20, 8, 0, 0, ["bite", "poison_breath"], [], []),
             Enemy("Elder Dragon", "Dragon", 400, 25, 10, 0, 0, ["bite", "greater_fire_breath"]),
             Enemy("Bandit", "Human", 60, 14, 3, 0, 0, ["slash"], ["potion", "potion", "potion", "potion", "potion"]),
-            Enemy("Training Dummy", "Dummy", 500, 1, 10, 0, 0, [], ["power_up"], [])
+            Enemy("Training Dummy", "Dummy", 500, 1, 10, 0, 0, [], ["power_boost"], [])
         ]
 
         self.abilities = get_abilities()
         self.status_defs = get_status_defs(self)
+        self.debug_actions = self.build_debug_actions()
+        self.debug_category = None
+        self.debug_scroll = 0
 
         self.text_formatter = {
             "attack": {"verb": "used"},
@@ -163,8 +166,20 @@ class BattleGame:
                     self.log_offset = max(self.log_offset - 1, 0)
             if event.type == pygame.QUIT:
                 self.running = False
-            for button in self.buttons:
-                button.handle_event(event)
+            if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                for button in self.buttons:
+                    button.handle_event(event)
+
+            if self.menu == MENU_DEBUG and self.debug_category:
+                if event.type == pygame.MOUSEBUTTONDOWN:
+                    if event.button == 4:
+                        self.debug_scroll = max(0, self.debug_scroll - 1)
+                        self.make_buttons()
+                    elif event.button == 5:
+                        actions = list(self.debug_actions[self.debug_category].items())
+                        max_scroll = max(0, len(actions) - 8)
+                        self.debug_scroll = min(self.debug_scroll + 1, max_scroll)
+                        self.make_buttons()
         
         # Check for hover separately
         for button in self.buttons:
@@ -242,16 +257,23 @@ class BattleGame:
             options = [("Quit", self.quit_game, None)]
 
         elif self.menu == MENU_DEBUG:
-            options = [
-                ("Heal Player", lambda: self.debug_heal_player(), None),
-                ("Damage Player", lambda: self.debug_damage_player(), None),
-                ("Add Sleep (Enemy)", lambda: self.debug_sleep_enemy(), None),
-                ("Add Sheep (Player)", lambda: self.debug_sheep_player(), None),
-                ("Give Potion", lambda: self.debug_give_item("potion"), None),
-                ("Spawn Dragon", lambda: self.debug_spawn_enemy("Dragon"), None),
-                ("Back", self.go_back, None),
-            ]
-        
+            options = []
+
+            # Category select
+            if self.debug_category is None:
+                for category in self.debug_actions:
+                    options.append((category, lambda c=category: self.set_debug_category(c), None))
+                options.append(("Back", self.go_back, None))
+
+            # Action select
+            else:
+                actions = self.debug_actions[self.debug_category]
+
+                for name, func in list(actions.items())[self.debug_scroll:self.debug_scroll + 8]:
+                    options.append((name, func, None))
+
+                options.append(("Back", self.clear_debug_category, None))
+                
         else:
             return
 
@@ -800,6 +822,31 @@ class BattleGame:
 
 
     # DEBUG
+    def set_debug_category(self, category):
+        self.debug_category = category
+        self.debug_scroll = 0
+        self.make_buttons()
+
+    def clear_debug_category(self):
+        self.debug_category = None
+        self.make_buttons()
+
+    def build_debug_actions(self):
+        actions = {}
+
+        # All abilities
+        ability_actions = {}
+        for ability_id, ability in self.abilities.items():
+            ability_actions[ability["name"]] = lambda a=ability_id: self.execute_ability(
+                EffectContext(self, self.player, self.enemy),
+                self.get_ability(a),
+                a
+            )
+
+        actions["Abilities"] = ability_actions
+
+        return actions
+
     def debug_heal_player(self):
         self.player.restore_hp(50)
         self.log("DEBUG: Player healed 50 HP")
