@@ -61,7 +61,8 @@ class BattleGame:
 
         self.battle_prep()
 
-    def battle_prep(self, e = None, allow_forfeit = False):
+    def battle_prep(self, e = None, allow_forfeit = False, debug = False):
+        self.debug = debug
         self.turn = PLAYER
         self.action = None
         self.selected_move = None
@@ -187,6 +188,7 @@ class BattleGame:
                 options.append(("Forfeit", self.forfeit_battle, None))
             else:
                 options.append(("Run", self.try_escape, None))
+            options.append(("Debug", lambda: self.set_menu(MENU_DEBUG), None))
 
         elif self.menu == MENU_ATTACK:
             options = []
@@ -238,6 +240,17 @@ class BattleGame:
 
         elif self.menu == MENU_QUIT:
             options = [("Quit", self.quit_game, None)]
+
+        elif self.menu == MENU_DEBUG:
+            options = [
+                ("Heal Player", lambda: self.debug_heal_player(), None),
+                ("Damage Player", lambda: self.debug_damage_player(), None),
+                ("Add Sleep (Enemy)", lambda: self.debug_sleep_enemy(), None),
+                ("Add Sheep (Player)", lambda: self.debug_sheep_player(), None),
+                ("Give Potion", lambda: self.debug_give_item("potion"), None),
+                ("Spawn Dragon", lambda: self.debug_spawn_enemy("Dragon"), None),
+                ("Back", self.go_back, None),
+            ]
         
         else:
             return
@@ -785,6 +798,32 @@ class BattleGame:
             else:
                 self.log("But, it failed.")
 
+
+    # DEBUG
+    def debug_heal_player(self):
+        self.player.restore_hp(50)
+        self.log("DEBUG: Player healed 50 HP")
+
+    def debug_damage_player(self):
+        self.player.take_damage(20)
+        self.log("DEBUG: Player took 20 damage")
+
+    def debug_sleep_enemy(self):
+        self.sleep(self.enemy)
+        self.log("DEBUG: Enemy put to sleep")
+
+    def debug_sheep_player(self):
+        self.summon_sheep(self.player)
+        self.log("DEBUG: Sheep added to player")
+
+    def debug_give_item(self, item_id):
+        self.player.inventory.append(item_id)
+        self.log(f"DEBUG: Gave {item_id}")
+
+    def debug_spawn_enemy(self, name):
+        self.battle_prep(name)
+        self.make_buttons()
+        self.log(f"DEBUG: Spawned {name}")
 
 if __name__ == "__main__":
     # Create game context

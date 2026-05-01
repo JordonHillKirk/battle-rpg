@@ -21,7 +21,7 @@ if __name__ == "__main__":
     ctx.game = game
 
     # Start a test battle
-    game.battle_prep("Black Dragon")
+    game.battle_prep("Black Dragon", debug=True)
     game.make_buttons()
     game.run_battle()
     pygame.quit()

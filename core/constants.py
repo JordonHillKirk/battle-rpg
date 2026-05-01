@@ -75,6 +75,8 @@ MENU_SPELLS = "spells"
 MENU_SPECIAL = "special"
 MENU_QUIT = "quit"
 
+MENU_DEBUG = "debug"
+
 
 # =========================
 # Action Types
