@@ -30,6 +30,12 @@ def get_abilities():
             NAME: "Fire Breath",
             DAMAGE: lambda ctx: 25 - ctx.target.defense
         },
+        "poison_breath": {
+            ID: "poison_breath",
+            NAME: "Poison Breath",
+            DAMAGE: lambda ctx: 20 - ctx.target.defense,
+            FUNC: lambda ctx: ctx.game.poison(ctx.target, 3)
+        },
         "greater_fire_breath": {
             ID: "greater_fire_breath",
             NAME: "Greater Fire Breath",

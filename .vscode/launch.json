@@ -1,7 +1,0 @@
-{
-    "name": "Run Battle (module)",
-    "type": "python",
-    "request": "launch",
-    "module": "core.advanced_rpg",
-    "justMyCode": true
-}

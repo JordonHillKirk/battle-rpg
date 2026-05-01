@@ -6,7 +6,6 @@ import random
 import sys
 import copy
 
-
 from core.abilities import get_abilities
 from core.character_select_screen import CharacterSelectScreen
 from core.constants import *
@@ -44,6 +43,7 @@ class BattleGame:
             Enemy("Orc Champion", "Orc", 120, 18, 6, 20, 20, ["heavy_strike"], [], ["lambda"]),
             Enemy("Sneaky Orc", "Orc", 100, 15, 3, 0, 0, ["poison_blade"], [], []),
             Enemy("Dragon", "Dragon", 200, 20, 8, 0, 0, ["bite", "fire_breath"]),
+            Enemy("Black Dragon", "Dragon", 200, 20, 8, 0, 0, ["bite", "poison_breath"], [], []),
             Enemy("Elder Dragon", "Dragon", 400, 25, 10, 0, 0, ["bite", "greater_fire_breath"]),
             Enemy("Bandit", "Human", 60, 14, 3, 0, 0, ["slash"], ["potion", "potion", "potion", "potion", "potion"]),
             Enemy("Training Dummy", "Dummy", 500, 1, 10, 0, 0, [], ["power_up"], [])
@@ -129,8 +129,8 @@ class BattleGame:
     def restore_window(self):
         if platform.system() == "Windows":
             try:
-                import win32gui
-                import win32con
+                import win32gui # type: ignore
+                import win32con # type: ignore
                 hwnd = pygame.display.get_wm_info()['window']
                 win32gui.ShowWindow(hwnd, win32con.SW_RESTORE)
                 win32gui.SetForegroundWindow(hwnd)
@@ -802,7 +802,7 @@ if __name__ == "__main__":
     ctx.game = game
 
     # Start a test battle
-    game.battle_prep("Goblin")  # or "Dragon"
+    game.battle_prep("Black Dragon")
     game.make_buttons()
     game.run_battle()
     pygame.quit()
