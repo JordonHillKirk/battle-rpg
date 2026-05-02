@@ -15,6 +15,8 @@ from core.game_context import GameContext
 from core.shared_ui import Button, draw_text, font, screen, clock
 from core.status_defs import get_status_defs
 
+VISIBLE_DEBUG_ITEMS = 17
+
 
 def draw_status(surface, entity, x, y):
     draw_text(surface, f"{entity.name}", x, y)
@@ -51,9 +53,13 @@ class BattleGame:
 
         self.abilities = get_abilities()
         self.status_defs = get_status_defs(self)
+
         self.debug_actions = self.build_debug_actions()
         self.debug_category = None
         self.debug_scroll = 0
+        self.debug_visible = False
+        self.debug_target = PLAYER
+        self.debug_hover_index = None
 
         self.text_formatter = {
             "attack": {"verb": "used"},
@@ -158,32 +164,137 @@ class BattleGame:
 
     def handle_events(self):
         mouse_pos = pygame.mouse.get_pos()
+
         for event in pygame.event.get():
-            if event.type == pygame.MOUSEBUTTONDOWN:
-                if event.button == 4:  # scroll up
-                    self.log_offset = min(self.log_offset + 1, len(self.combat_log))
-                elif event.button == 5:  # scroll down
-                    self.log_offset = max(self.log_offset - 1, 0)
+
+            # -------------------------
+            # Quit
+            # -------------------------
             if event.type == pygame.QUIT:
                 self.running = False
+                return
+
+            # -------------------------
+            # Key input (global)
+            # -------------------------
+            if event.type == pygame.KEYDOWN:
+                if self.debug and event.key == pygame.K_d:
+                    self.debug_visible = not self.debug_visible
+                elif self.debug and event.key == pygame.K_TAB:
+                    self.debug_target = ENEMY if self.debug_target == PLAYER else PLAYER
+
+            # -------------------------
+            # Mouse scroll
+            # -------------------------
+            if event.type == pygame.MOUSEBUTTONDOWN:
+
+                # Debug panel scroll (takes priority)
+                if self.debug_visible:
+                    if event.button == 4:
+                        self.debug_scroll = max(0, self.debug_scroll - 1)
+                        continue
+                    elif event.button == 5:
+                        max_scroll = max(0, len(self.get_debug_actions()) - VISIBLE_DEBUG_ITEMS)
+                        self.debug_scroll = min(self.debug_scroll + 1, max_scroll)
+                        continue
+
+                # Combat log scroll
+                if event.button == 4:
+                    self.log_offset = min(self.log_offset + 1, len(self.combat_log))
+                elif event.button == 5:
+                    self.log_offset = max(self.log_offset - 1, 0)
+
+            # -------------------------
+            # Mouse click (LEFT CLICK ONLY)
+            # -------------------------
             if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+
+                mx, my = event.pos
+
+                # Debug panel click (priority)
+                if self.debug_visible and mx >= 600:
+                    self.handle_debug_click(mx, my)
+                    continue  # don't click normal buttons
+
+                # Normal UI buttons
                 for button in self.buttons:
                     button.handle_event(event)
 
-            if self.menu == MENU_DEBUG and self.debug_category:
-                if event.type == pygame.MOUSEBUTTONDOWN:
-                    if event.button == 4:
-                        self.debug_scroll = max(0, self.debug_scroll - 1)
-                        self.make_buttons()
-                    elif event.button == 5:
-                        actions = list(self.debug_actions[self.debug_category].items())
-                        max_scroll = max(0, len(actions) - 8)
-                        self.debug_scroll = min(self.debug_scroll + 1, max_scroll)
-                        self.make_buttons()
-        
-        # Check for hover separately
+        # -------------------------
+        # Hover (always last)
+        # -------------------------
         for button in self.buttons:
             button.check_hover(mouse_pos)
+
+    def handle_debug_click(self, mx, my):
+        panel_x = 600
+        y = 20
+        line_height = 30
+
+        index = (my - y) // line_height
+        if index < 0:
+            return
+
+        if self.debug_category is None:
+            categories = list(self.debug_actions.keys())
+            if index < len(categories):
+                self.debug_category = categories[index]
+                self.debug_scroll = 0
+        else:
+            actions = list(self.get_debug_actions().items())
+            visible = actions[self.debug_scroll:self.debug_scroll + 15]
+
+            if index < len(visible):
+                _, func = visible[index]
+                func()
+            elif index == len(visible):
+                self.debug_category = None
+
+    def get_debug_target(self):
+        return self.player if self.debug_target == PLAYER else self.enemy
+
+    def get_debug_actions(self):
+        if self.debug_category == "Abilities":
+            actions = {}
+            for ability_id, ability in self.abilities.items():
+                # Filter: only meaningful abilities
+                if DAMAGE not in ability and FUNC not in ability:
+                    continue
+
+                actions[ability[NAME]] = lambda a=ability_id: self.execute_ability(
+                    EffectContext(self, self.get_debug_target(), self.enemy if self.debug_target == PLAYER else self.player),
+                    self.get_ability(a),
+                    a,
+                    free=True
+                )
+            return actions
+
+        return self.debug_actions.get(self.debug_category, {})
+
+    def draw_debug_panel(self, surface):
+        panel_x = 600
+        panel_width = 200
+        panel_height = 600
+
+        pygame.draw.rect(surface, (25, 25, 25), (panel_x, 0, panel_width, panel_height))
+
+        y = 20
+        line_height = 30
+
+        if self.debug_category is None:
+            for category in self.debug_actions:
+                draw_text(surface, category, panel_x + 10, y)
+                y += line_height
+        else:
+            actions = list(self.get_debug_actions().items())
+
+            visible = actions[self.debug_scroll:self.debug_scroll + VISIBLE_DEBUG_ITEMS]
+
+            for name, _ in visible:
+                draw_text(surface, name, panel_x + 10, y)
+                y += line_height
+
+            draw_text(surface, "Back", panel_x + 10, y)
 
     def make_buttons(self):
         ctx = EffectContext(self, self.player, self.enemy)
@@ -203,7 +314,6 @@ class BattleGame:
                 options.append(("Forfeit", self.forfeit_battle, None))
             else:
                 options.append(("Run", self.try_escape, None))
-            options.append(("Debug", lambda: self.set_menu(MENU_DEBUG), None))
 
         elif self.menu == MENU_ATTACK:
             options = []
@@ -255,25 +365,7 @@ class BattleGame:
 
         elif self.menu == MENU_QUIT:
             options = [("Quit", self.quit_game, None)]
-
-        elif self.menu == MENU_DEBUG:
-            options = []
-
-            # Category select
-            if self.debug_category is None:
-                for category in self.debug_actions:
-                    options.append((category, lambda c=category: self.set_debug_category(c), None))
-                options.append(("Back", self.go_back, None))
-
-            # Action select
-            else:
-                actions = self.debug_actions[self.debug_category]
-
-                for name, func in list(actions.items())[self.debug_scroll:self.debug_scroll + 8]:
-                    options.append((name, func, None))
-
-                options.append(("Back", self.clear_debug_category, None))
-                
+   
         else:
             return
 
@@ -341,8 +433,9 @@ class BattleGame:
             self.turn = ENEMY
         self.make_buttons()
 
-    def execute_ability(self, ctx, ability, ability_id):
-        self.pay_ability_costs(ctx.user, ability, ability_id)
+    def execute_ability(self, ctx, ability, ability_id, free=False):
+        if not free:
+            self.pay_ability_costs(ctx.user, ability, ability_id)
 
         if DAMAGE in ability:
             ctx.ability_id = ability_id
@@ -411,6 +504,8 @@ class BattleGame:
                 popup_rect = popup_surface.get_rect()
                 popup_rect.topleft = (button.rect.right + 10, button.rect.top)
                 screen.blit(popup_surface, popup_rect)
+        if self.debug_visible:
+            self.draw_debug_panel(screen)
 
     def logic(self):
         if self.turn == PLAYER and self.action:
@@ -840,7 +935,8 @@ class BattleGame:
             ability_actions[ability["name"]] = lambda a=ability_id: self.execute_ability(
                 EffectContext(self, self.player, self.enemy),
                 self.get_ability(a),
-                a
+                a,
+                True
             )
 
         actions["Abilities"] = ability_actions
