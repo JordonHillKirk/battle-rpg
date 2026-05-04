@@ -18,7 +18,9 @@ from core.status_defs import get_status_defs
 VISIBLE_DEBUG_ITEMS = 17
 
 
-def draw_status(surface, entity, x, y):
+def draw_status(surface, entity, x, y, is_target=False):
+    if is_target:
+        pygame.draw.rect(surface, (255, 255, 0), (x - 10, y - 10, 200, 120), 3)
     draw_text(surface, f"{entity.name}", x, y)
     draw_text(surface, f"HP: {entity.hp}/{entity.max_hp}", x, y + 30)
     if entity.max_mp > 0:
@@ -36,6 +38,8 @@ class BattleGame:
     def __init__(self, player, game_ctx = None):
         self.player = player
         self.game_ctx = game_ctx
+        self.base_width = WINDOW_WIDTH
+        self.current_width = WINDOW_WIDTH
 
         self.enemies = [
             Enemy("Goblin", "Goblin", 50, 10, 2, 0, 0, ["bite", "scratch", "surprise"]),
@@ -54,12 +58,20 @@ class BattleGame:
         self.abilities = get_abilities()
         self.status_defs = get_status_defs(self)
 
-        self.debug_actions = self.build_debug_actions()
+        self.debug_actions = {
+            "Attacks": {},
+            "Spells": {},
+            "Items": {},
+            "Specials": {}
+        }
         self.debug_category = None
         self.debug_scroll = 0
         self.debug_visible = False
         self.debug_target = PLAYER
         self.debug_hover_index = None
+        self.debug_search = ""
+        self.debug_input_active = False
+        self.debug_show_all = False
 
         self.text_formatter = {
             "attack": {"verb": "used"},
@@ -107,6 +119,14 @@ class BattleGame:
         # Auto-scroll to bottom
         self.log_offset = 0
 
+    def update_window_size(self):
+        if self.debug_visible:
+            self.current_width = self.base_width + DEBUG_PANEL_WIDTH
+        else:
+            self.current_width = self.base_width
+
+        pygame.display.set_mode((self.current_width, WINDOW_HEIGHT))
+
     def draw_combat_log(self, surface):
         x = 300
         y = 400
@@ -151,7 +171,6 @@ class BattleGame:
         self.restore_window()
         self.running = True
 
-        
         while self.running:
             screen.fill((0, 0, 0))
             self.handle_events()
@@ -178,11 +197,41 @@ class BattleGame:
             # Key input (global)
             # -------------------------
             if event.type == pygame.KEYDOWN:
-                if self.debug and event.key == pygame.K_d:
+
+                mods = pygame.key.get_mods()
+
+                # -------------------------
+                # Debug toggles FIRST
+                # -------------------------
+                if self.debug and event.key == pygame.K_d and (mods & pygame.KMOD_CTRL):
                     self.debug_visible = not self.debug_visible
+                    self.update_window_size()
+                    return
+
                 elif self.debug and event.key == pygame.K_TAB:
                     self.debug_target = ENEMY if self.debug_target == PLAYER else PLAYER
+                    return
 
+                elif self.debug and event.key == pygame.K_a and (mods & pygame.KMOD_CTRL):
+                    self.debug_show_all = not self.debug_show_all
+                    self.debug_scroll = 0
+                    self.debug_category = None
+                    return
+
+                # -------------------------
+                # Debug text input AFTER
+                # -------------------------
+                if self.debug_visible:
+                    if event.key == pygame.K_BACKSPACE:
+                        self.debug_search = self.debug_search[:-1]
+
+                    elif event.key == pygame.K_ESCAPE:
+                        self.debug_search = ""
+                        self.debug_category = None
+
+                    elif event.unicode.isprintable():
+                        self.debug_search += event.unicode
+                
             # -------------------------
             # Mouse scroll
             # -------------------------
@@ -212,7 +261,8 @@ class BattleGame:
                 mx, my = event.pos
 
                 # Debug panel click (priority)
-                if self.debug_visible and mx >= 600:
+                panel_x = self.current_width - DEBUG_PANEL_WIDTH
+                if self.debug_visible and mx >= panel_x:
                     self.handle_debug_click(mx, my)
                     continue  # don't click normal buttons
 
@@ -226,12 +276,41 @@ class BattleGame:
         for button in self.buttons:
             button.check_hover(mouse_pos)
 
+    def get_debug_buttons(self):
+        panel_x = self.current_width - DEBUG_PANEL_WIDTH
+
+        return {
+            "toggle_mode": pygame.Rect(panel_x, 0, DEBUG_PANEL_WIDTH // 2, 30),
+            "switch_target": pygame.Rect(panel_x + DEBUG_PANEL_WIDTH // 2, 0, DEBUG_PANEL_WIDTH // 2, 30),
+        }
+
     def handle_debug_click(self, mx, my):
-        panel_x = 600
-        y = 20
+        panel_x = self.current_width - DEBUG_PANEL_WIDTH
         line_height = 30
 
-        index = (my - y) // line_height
+        debug_buttons = self.get_debug_buttons()
+
+        # -------------------------
+        # TOP BUTTONS (FIRST)
+        # -------------------------
+        for key, rect in debug_buttons.items():
+            if rect.collidepoint(mx, my):
+                if key == "toggle_mode":
+                    self.debug_show_all = not self.debug_show_all
+                    self.debug_scroll = 0
+                    self.debug_category = None
+
+                elif key == "switch_target":
+                    self.debug_target = ENEMY if self.debug_target == PLAYER else PLAYER
+
+                return  # stop here (VERY important)
+
+        # -------------------------
+        # LIST AREA (SHIFTED DOWN)
+        # -------------------------
+        start_y = 60
+        index = (my - start_y) // line_height
+
         if index < 0:
             return
 
@@ -240,61 +319,204 @@ class BattleGame:
             if index < len(categories):
                 self.debug_category = categories[index]
                 self.debug_scroll = 0
+                self.debug_search = ""
         else:
             actions = list(self.get_debug_actions().items())
-            visible = actions[self.debug_scroll:self.debug_scroll + 15]
+            visible = actions[self.debug_scroll:self.debug_scroll + VISIBLE_DEBUG_ITEMS]
 
-            if index < len(visible):
-                _, func = visible[index]
-                func()
-            elif index == len(visible):
+            rows = []
+
+            if not visible:
+                rows.append(("label", {"text": "No abilities"}))
+            else:
+                for _, data in visible:
+                    rows.append(("action", data))
+
+            # Back is always last
+            rows.append(("back", {"text": "Back"}))
+
+            if index < 0 or index >= len(rows):
+                return
+
+            row_type, data = rows[index]
+
+            if row_type == "action":
+                data["func"]()
+
+            elif row_type == "back":
                 self.debug_category = None
+                self.debug_search = ""
 
     def get_debug_target(self):
         return self.player if self.debug_target == PLAYER else self.enemy
 
     def get_debug_actions(self):
-        if self.debug_category == "Abilities":
-            actions = {}
-            for ability_id, ability in self.abilities.items():
-                # Filter: only meaningful abilities
-                if DAMAGE not in ability and FUNC not in ability:
+        actions = {}
+
+        target_entity = self.get_debug_target()
+
+        for ability_id, ability in self.abilities.items():
+
+            # -------------------------
+            # Determine category FIRST
+            # -------------------------
+            category = None
+
+            entity = target_entity if not self.debug_show_all else self.player
+
+            if ability_id in getattr(entity, "moves", []):
+                category = "Attacks"
+            elif ability_id in getattr(entity, "spells", []):
+                category = "Spells"
+            elif ability_id in getattr(entity, "inventory", []):
+                category = "Items"
+            elif ability_id == getattr(entity, "special", None):
+                category = "Specials"
+
+            # -------------------------
+            # LIMITED MODE EXTENSION
+            # -------------------------
+            if not self.debug_show_all:
+                valid_ids = self.get_entity_ability_ids(target_entity)
+
+                if ability_id not in valid_ids:
                     continue
 
-                actions[ability[NAME]] = lambda a=ability_id: self.execute_ability(
-                    EffectContext(self, self.get_debug_target(), self.enemy if self.debug_target == PLAYER else self.player),
+            # -------------------------
+            # ALL MODE (no filtering)
+            # -------------------------
+            if self.debug_show_all:
+                # fallback categorization (based on ability type)
+                ability_type = ability.get("type", None)
+
+                if ability_type == "attack":
+                    category = "Attacks"
+                elif ability_type == "spell":
+                    category = "Spells"
+                elif ability_type == "item":
+                    category = "Items"
+                elif ability_type == "special":
+                    category = "Specials"
+
+            # Skip if still no category
+            if self.debug_show_all and not category:
+                category = "Attacks"  # fallback so something shows
+
+            if self.debug_category != category:
+                continue
+
+            label = ability[NAME]
+
+            if self.debug_search and self.debug_search.lower() not in label.lower():
+                continue
+
+            actions[ability_id] = {
+                "label": label,
+                "func": lambda a=ability_id: self.execute_ability(
+                    EffectContext(
+                        self,
+                        self.get_debug_target(),
+                        self.enemy if self.debug_target == PLAYER else self.player
+                    ),
                     self.get_ability(a),
                     a,
                     free=True
                 )
-            return actions
+            }
 
-        return self.debug_actions.get(self.debug_category, {})
+        return actions
 
     def draw_debug_panel(self, surface):
-        panel_x = 600
-        panel_width = 200
+        panel_x = self.current_width - DEBUG_PANEL_WIDTH
+        panel_width = DEBUG_PANEL_WIDTH
         panel_height = 600
+
+        y = 30
+        line_height = 30
+
+        debug_buttons = self.get_debug_buttons()
 
         pygame.draw.rect(surface, (25, 25, 25), (panel_x, 0, panel_width, panel_height))
 
-        y = 20
-        line_height = 30
+        # Mouse position (needed for hover)
+        # --- Debug Buttons ---
+        mx, my = pygame.mouse.get_pos()
+
+        # Toggle Mode Button
+        rect = debug_buttons["toggle_mode"]
+        pygame.draw.rect(surface, (60, 60, 60), rect)
+        if rect.collidepoint(mx, my):
+            pygame.draw.rect(surface, (100, 100, 140), rect)
+
+        mode_text = "ALL" if self.debug_show_all else "LIMITED"
+        draw_text(surface, mode_text, rect.x + 10, rect.y + 5)
+
+        # Switch Target Button
+        rect = debug_buttons["switch_target"]
+        pygame.draw.rect(surface, (60, 60, 60), rect)
+        if rect.collidepoint(mx, my):
+            pygame.draw.rect(surface, (100, 100, 140), rect)
+
+        target_text = "PLAYER" if self.debug_target == PLAYER else "ENEMY"
+        draw_text(surface, target_text, rect.x + 5, rect.y + 5)
+
+        # Search bar
+        draw_text(surface, f"Search: {self.debug_search}", panel_x + 10, y)
+        y += line_height
 
         if self.debug_category is None:
-            for category in self.debug_actions:
+            categories = list(self.debug_actions.keys())
+
+            for category in categories:
+                rect = pygame.Rect(panel_x, y, panel_width, line_height)
+
+                if rect.collidepoint(mx, my):
+                    pygame.draw.rect(surface, (70, 70, 120), rect)
+
                 draw_text(surface, category, panel_x + 10, y)
                 y += line_height
+
         else:
             actions = list(self.get_debug_actions().items())
-
             visible = actions[self.debug_scroll:self.debug_scroll + VISIBLE_DEBUG_ITEMS]
 
-            for name, _ in visible:
-                draw_text(surface, name, panel_x + 10, y)
+            rows = []
+
+            if not visible:
+                rows.append(("label", {"text": "No abilities"}))
+            else:
+                for _, data in visible:
+                    rows.append(("action", data))
+
+            rows.append(("back", {"text": "Back"}))
+
+            for row_type, data in rows:
+                rect = pygame.Rect(panel_x, y, panel_width, line_height)
+
+                if rect.collidepoint(mx, my):
+                    if row_type == "back":
+                        pygame.draw.rect(surface, (100, 60, 60), rect)
+                    elif row_type == "action":
+                        pygame.draw.rect(surface, (70, 70, 120), rect)
+
+                # Text
+                if row_type == "action":
+                    draw_text(surface, data["label"], panel_x + 10, y)
+                elif row_type == "label":
+                    draw_text(surface, data["text"], panel_x + 10, y, (150, 150, 150))
+                else:
+                    draw_text(surface, data["text"], panel_x + 10, y)
+
                 y += line_height
 
-            draw_text(surface, "Back", panel_x + 10, y)
+    def get_entity_ability_ids(self, entity):
+        ids = set()
+        ids.update(getattr(entity, "moves", []))
+        ids.update(getattr(entity, "spells", []))
+        ids.update(getattr(entity, "inventory", []))
+        if getattr(entity, "special", None):
+            ids.add(entity.special)
+        return ids
 
     def make_buttons(self):
         ctx = EffectContext(self, self.player, self.enemy)
@@ -434,6 +656,7 @@ class BattleGame:
         self.make_buttons()
 
     def execute_ability(self, ctx, ability, ability_id, free=False):
+        print("EXECUTING:", ability_id, ability)
         if not free:
             self.pay_ability_costs(ctx.user, ability, ability_id)
 
@@ -488,8 +711,12 @@ class BattleGame:
             user.inventory.remove(ability_id)
 
     def render(self):
-        draw_status(screen, self.player, 50, 50)
-        draw_status(screen, self.enemy, 500, 50) 
+        if not self.debug:
+            self.debug_visible = False
+
+        target = self.get_debug_target() if self.debug_visible else None
+        draw_status(screen, self.player, 50, 50, is_target=(target == self.player))
+        draw_status(screen, self.enemy, 500, 50, is_target=(target == self.enemy))
 
         self.draw_combat_log(screen)
 
@@ -905,12 +1132,19 @@ class BattleGame:
             else:
                 self.log("But, it failed.")
         else:
-            if random.randint(1, 100) <= 10 and (ctx.target != ctx.game.player or ctx.target.gold > 0):
+            if random.randint(1, 100) <= 10:
                 gold = random.randint(1, 10)
-                if ctx.target == ctx.game.player:
+
+                if hasattr(ctx.target, "gold"):
+                    if ctx.target.gold <= 0:
+                        self.log("But, it failed.")
+                        return
+
                     gold = min(gold, ctx.target.gold)
                     ctx.target.gold -= gold
-                ctx.user.gold += gold
+
+                # enemies: no need to check gold
+                ctx.user.gold = getattr(ctx.user, "gold", 0) + gold
                 self.log(f"{ctx.user.pronouns[PRONOUN_SUBJECT]} stole {gold} gold.")
             else:
                 self.log("But, it failed.")

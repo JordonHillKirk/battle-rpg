@@ -1,8 +1,10 @@
 import pygame
 
+from core.constants import *
+
 pygame.init()
 
-screen = pygame.display.set_mode((800, 600))
+screen = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT))
 pygame.display.set_caption("Battle Game")
 
 font = pygame.font.SysFont("arial", 24)

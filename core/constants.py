@@ -25,11 +25,21 @@ ID = "id"
 COST = "cost"
 HOVER = "hover"
 VALUE = "value"
+TYPE = "type"
 
 DAMAGE = "damage"
 HEAL = "heal"
 FUNC = "func"
 HITS = "hits"
+
+
+# =========================
+# Ability Type Keys
+# =========================
+TYPE_ATTACK = "attack"
+TYPE_ITEM = "item"
+TYPE_SPELL = "spell"
+TYPE_SPECIAL = "special"
 
 
 # =========================
@@ -99,3 +109,12 @@ ENEMY = "enemy"
 # =========================
 SPECIAL_COLOR = (50, 150, 150)
 DEFAULT_COLOR = (50, 50, 150)
+
+
+# =========================
+# Window Sizing
+# =========================
+WINDOW_WIDTH = 800
+WINDOW_HEIGHT = 600
+DEBUG_PANEL_WIDTH = 200
+GAME_WIDTH = WINDOW_WIDTH - DEBUG_PANEL_WIDTH
