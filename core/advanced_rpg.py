@@ -34,6 +34,13 @@ def draw_status(surface, entity, x, y, is_target=False):
 def damage_variance(damage):
     return random.randint(max(0, damage - 3), max(0, damage + 3))
 
+class DebugRow:
+    def __init__(self, type, text="", data=None, on_click=None):
+        self.type = type
+        self.text = text
+        self.data = data
+        self.on_click = on_click
+
 class BattleGame:
     def __init__(self, player, game_ctx = None):
         self.player = player
@@ -62,7 +69,8 @@ class BattleGame:
             "Attacks": {},
             "Spells": {},
             "Items": {},
-            "Specials": {}
+            "Specials": {},
+            "Tools": {}
         }
         self.debug_category = None
         self.debug_scroll = 0
@@ -72,6 +80,9 @@ class BattleGame:
         self.debug_search = ""
         self.debug_input_active = False
         self.debug_show_all = False
+        self.debug_rows = []
+        self.debug_dirty = True
+        self.debug_selected_index = 0
 
         self.text_formatter = {
             "attack": {"verb": "used"},
@@ -204,18 +215,24 @@ class BattleGame:
                 # Debug toggles FIRST
                 # -------------------------
                 if self.debug and event.key == pygame.K_d and (mods & pygame.KMOD_CTRL):
+                    # CTRL + D
                     self.debug_visible = not self.debug_visible
                     self.update_window_size()
+                    self.mark_debug_dirty()
                     return
 
                 elif self.debug and event.key == pygame.K_TAB:
+                    # TAB target switch
                     self.debug_target = ENEMY if self.debug_target == PLAYER else PLAYER
+                    self.mark_debug_dirty()
                     return
 
                 elif self.debug and event.key == pygame.K_a and (mods & pygame.KMOD_CTRL):
+                    # CTRL + A toggle mode
                     self.debug_show_all = not self.debug_show_all
                     self.debug_scroll = 0
                     self.debug_category = None
+                    self.mark_debug_dirty()
                     return
 
                 # -------------------------
@@ -223,14 +240,39 @@ class BattleGame:
                 # -------------------------
                 if self.debug_visible:
                     if event.key == pygame.K_BACKSPACE:
+                        # backspace
                         self.debug_search = self.debug_search[:-1]
+                        self.mark_debug_dirty()
 
                     elif event.key == pygame.K_ESCAPE:
+                        # escape
                         self.debug_search = ""
                         self.debug_category = None
+                        self.mark_debug_dirty()
 
                     elif event.unicode.isprintable():
+                        # typing search
                         self.debug_search += event.unicode
+                        self.mark_debug_dirty()
+
+                    if self.debug_dirty:
+                        self.debug_rows = self.build_debug_rows()
+                        self.debug_dirty = False
+
+                    if event.key == pygame.K_DOWN:
+                        self.debug_selected_index = min(
+                            self.debug_selected_index + 1,
+                            len(self.debug_rows) - 1
+                        )
+
+                    elif event.key == pygame.K_UP:
+                        self.debug_selected_index = max(0, self.debug_selected_index - 1)
+
+                    elif event.key == pygame.K_RETURN:
+                        if 0 <= self.debug_selected_index < len(self.debug_rows):
+                            row = self.debug_rows[self.debug_selected_index]
+                            if row.on_click:
+                                row.on_click()
                 
             # -------------------------
             # Mouse scroll
@@ -243,7 +285,11 @@ class BattleGame:
                         self.debug_scroll = max(0, self.debug_scroll - 1)
                         continue
                     elif event.button == 5:
-                        max_scroll = max(0, len(self.get_debug_actions()) - VISIBLE_DEBUG_ITEMS)
+                        if self.debug_dirty:
+                            self.debug_rows = self.build_debug_rows()
+                            self.debug_dirty = False
+
+                        max_scroll = max(0, len(self.debug_rows) - VISIBLE_DEBUG_ITEMS)
                         self.debug_scroll = min(self.debug_scroll + 1, max_scroll)
                         continue
 
@@ -311,44 +357,19 @@ class BattleGame:
         start_y = 60
         index = (my - start_y) // line_height
 
-        if index < 0:
+        if index < 0 or index >= len(self.debug_rows):
             return
 
-        if self.debug_category is None:
-            categories = list(self.debug_actions.keys())
-            if index < len(categories):
-                self.debug_category = categories[index]
-                self.debug_scroll = 0
-                self.debug_search = ""
-        else:
-            actions = list(self.get_debug_actions().items())
-            visible = actions[self.debug_scroll:self.debug_scroll + VISIBLE_DEBUG_ITEMS]
+        row = self.debug_rows[index]
 
-            rows = []
-
-            if not visible:
-                rows.append(("label", {"text": "No abilities"}))
-            else:
-                for _, data in visible:
-                    rows.append(("action", data))
-
-            # Back is always last
-            rows.append(("back", {"text": "Back"}))
-
-            if index < 0 or index >= len(rows):
-                return
-
-            row_type, data = rows[index]
-
-            if row_type == "action":
-                data["func"]()
-
-            elif row_type == "back":
-                self.debug_category = None
-                self.debug_search = ""
+        if row.on_click:
+            row.on_click()
 
     def get_debug_target(self):
         return self.player if self.debug_target == PLAYER else self.enemy
+    
+    def mark_debug_dirty(self):
+        self.debug_dirty = True
 
     def get_debug_actions(self):
         actions = {}
@@ -407,7 +428,8 @@ class BattleGame:
 
             label = ability[NAME]
 
-            if self.debug_search and self.debug_search.lower() not in label.lower():
+            query = self.debug_search.lower().strip()
+            if query and query not in label.lower():
                 continue
 
             actions[ability_id] = {
@@ -426,6 +448,69 @@ class BattleGame:
 
         return actions
 
+    def build_debug_rows(self):
+        rows = []
+
+        # -------------------------
+        # CATEGORY VIEW
+        # -------------------------
+        if self.debug_category is None:
+            for category in self.debug_actions.keys():
+                rows.append(DebugRow(
+                    type="category",
+                    text=category,
+                    on_click=lambda c=category: self.select_debug_category(c)
+                ))
+
+            return rows
+
+        if self.debug_category == "Tools":
+            return [
+                DebugRow("action", "Heal Player", on_click=self.debug_heal_player),
+                DebugRow("action", "Damage Player", on_click=self.debug_damage_player),
+                DebugRow("action", "Sleep Enemy", on_click=self.debug_sleep_enemy),
+                DebugRow("action", "Summon Sheep", on_click=self.debug_sheep_player),
+                DebugRow("back", "Back", on_click=self.clear_debug_category)
+            ]
+
+        # -------------------------
+        # ACTION VIEW
+        # -------------------------
+        actions = list(self.get_debug_actions().items())
+        visible = actions[self.debug_scroll:self.debug_scroll + VISIBLE_DEBUG_ITEMS]
+
+        if not visible:
+            rows.append(DebugRow(type="label", text="No abilities"))
+
+        for _, data in visible:
+            rows.append(DebugRow(
+                type="action",
+                text=data["label"],
+                on_click=data["func"]
+            ))
+
+        # Back row
+        rows.append(DebugRow(
+            type="back",
+            text="Back",
+            on_click=self.clear_debug_category
+        ))
+
+        return rows
+
+    def select_debug_category(self, category):
+        self.debug_category = category
+        self.debug_scroll = 0
+        self.debug_search = ""
+        self.debug_selected_index = 0
+        self.mark_debug_dirty()
+
+    def clear_debug_category(self):
+        self.debug_category = None
+        self.debug_search = ""
+        self.debug_selected_index = 0
+        self.mark_debug_dirty()
+
     def draw_debug_panel(self, surface):
         panel_x = self.current_width - DEBUG_PANEL_WIDTH
         panel_width = DEBUG_PANEL_WIDTH
@@ -433,6 +518,15 @@ class BattleGame:
 
         y = 30
         line_height = 30
+
+        if self.debug_dirty:
+            self.debug_rows = self.build_debug_rows()
+            self.debug_dirty = False
+
+        self.debug_selected_index = min(
+            self.debug_selected_index,
+            max(0, len(self.debug_rows) - 1)
+        )
 
         debug_buttons = self.get_debug_buttons()
 
@@ -464,50 +558,26 @@ class BattleGame:
         draw_text(surface, f"Search: {self.debug_search}", panel_x + 10, y)
         y += line_height
 
-        if self.debug_category is None:
-            categories = list(self.debug_actions.keys())
+        for i, row in enumerate(self.debug_rows):
+            rect = pygame.Rect(panel_x, y, panel_width, line_height)
 
-            for category in categories:
-                rect = pygame.Rect(panel_x, y, panel_width, line_height)
+            if i == self.debug_selected_index:
+                pygame.draw.rect(surface, (120, 120, 180), rect)
 
-                if rect.collidepoint(mx, my):
+            if rect.collidepoint(mx, my):
+                if row.type == "back":
+                    pygame.draw.rect(surface, (100, 60, 60), rect)
+                elif row.type in ("action", "category"):
                     pygame.draw.rect(surface, (70, 70, 120), rect)
 
-                draw_text(surface, category, panel_x + 10, y)
-                y += line_height
+            color = (255, 255, 255)
 
-        else:
-            actions = list(self.get_debug_actions().items())
-            visible = actions[self.debug_scroll:self.debug_scroll + VISIBLE_DEBUG_ITEMS]
+            if row.type == "label":
+                color = (150, 150, 150)
 
-            rows = []
+            draw_text(surface, row.text, panel_x + 10, y, color)
 
-            if not visible:
-                rows.append(("label", {"text": "No abilities"}))
-            else:
-                for _, data in visible:
-                    rows.append(("action", data))
-
-            rows.append(("back", {"text": "Back"}))
-
-            for row_type, data in rows:
-                rect = pygame.Rect(panel_x, y, panel_width, line_height)
-
-                if rect.collidepoint(mx, my):
-                    if row_type == "back":
-                        pygame.draw.rect(surface, (100, 60, 60), rect)
-                    elif row_type == "action":
-                        pygame.draw.rect(surface, (70, 70, 120), rect)
-
-                # Text
-                if row_type == "action":
-                    draw_text(surface, data["label"], panel_x + 10, y)
-                elif row_type == "label":
-                    draw_text(surface, data["text"], panel_x + 10, y, (150, 150, 150))
-                else:
-                    draw_text(surface, data["text"], panel_x + 10, y)
-
-                y += line_height
+            y += line_height
 
     def get_entity_ability_ids(self, entity):
         ids = set()
@@ -1151,32 +1221,6 @@ class BattleGame:
 
 
     # DEBUG
-    def set_debug_category(self, category):
-        self.debug_category = category
-        self.debug_scroll = 0
-        self.make_buttons()
-
-    def clear_debug_category(self):
-        self.debug_category = None
-        self.make_buttons()
-
-    def build_debug_actions(self):
-        actions = {}
-
-        # All abilities
-        ability_actions = {}
-        for ability_id, ability in self.abilities.items():
-            ability_actions[ability["name"]] = lambda a=ability_id: self.execute_ability(
-                EffectContext(self, self.player, self.enemy),
-                self.get_ability(a),
-                a,
-                True
-            )
-
-        actions["Abilities"] = ability_actions
-
-        return actions
-
     def debug_heal_player(self):
         self.player.restore_hp(50)
         self.log("DEBUG: Player healed 50 HP")
