@@ -330,6 +330,16 @@ class BattleGame:
             "switch_target": pygame.Rect(panel_x + DEBUG_PANEL_WIDTH // 2, 0, DEBUG_PANEL_WIDTH // 2, 30),
         }
 
+    def rebuild_debug_rows(self):
+        self.debug_rows = self.build_debug_rows()
+
+        self.debug_selected_index = min(
+            self.debug_selected_index,
+            max(0, len(self.debug_rows) - 1)
+        )
+
+        self.debug_dirty = False
+
     def handle_debug_click(self, mx, my):
         panel_x = self.current_width - DEBUG_PANEL_WIDTH
         line_height = 30
@@ -344,12 +354,13 @@ class BattleGame:
                 if key == "toggle_mode":
                     self.debug_show_all = not self.debug_show_all
                     self.debug_scroll = 0
-                    self.debug_category = None
+                    self.mark_debug_dirty()
 
                 elif key == "switch_target":
                     self.debug_target = ENEMY if self.debug_target == PLAYER else PLAYER
+                    self.mark_debug_dirty()
 
-                return  # stop here (VERY important)
+                return
 
         # -------------------------
         # LIST AREA (SHIFTED DOWN)
@@ -370,6 +381,10 @@ class BattleGame:
     
     def mark_debug_dirty(self):
         self.debug_dirty = True
+
+        # Immediate rebuild if panel visible
+        if self.debug_visible:
+            self.rebuild_debug_rows()
 
     def get_debug_actions(self):
         actions = {}
@@ -520,8 +535,7 @@ class BattleGame:
         line_height = 30
 
         if self.debug_dirty:
-            self.debug_rows = self.build_debug_rows()
-            self.debug_dirty = False
+            self.rebuild_debug_rows()
 
         self.debug_selected_index = min(
             self.debug_selected_index,
