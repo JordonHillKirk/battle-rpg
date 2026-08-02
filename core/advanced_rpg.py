@@ -740,7 +740,8 @@ class BattleGame:
         self.make_buttons()
 
     def execute_ability(self, ctx, ability, ability_id, free=False):
-        print("EXECUTING:", ability_id, ability)
+        if self.debug:
+            print("EXECUTING:", ability_id, ability)
         if not free:
             self.pay_ability_costs(ctx.user, ability, ability_id)
 
